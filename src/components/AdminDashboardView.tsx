@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, X, CheckCircle2, RefreshCw, Database, Server } from 'lucide-react';
+import { Search, UserPlus, X, CheckCircle2, RefreshCw, Database, Server, CreditCard, Building2 } from 'lucide-react';
 import type { AdminUser } from '../types/debt';
 import { MOCK_ADMIN_USERS } from '../data/mockPlatformData';
 import { adminApi } from '../api/adminApi';
@@ -84,7 +84,14 @@ export const AdminDashboardView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => navigate('/admin/subscription')}
+            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md border border-purple-400/30 flex items-center gap-2 transition cursor-pointer"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Institution Subscription</span>
+          </button>
           <button
             onClick={() => navigate('/admin/database-status')}
             className="px-4 py-2.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold text-xs shadow-md border border-indigo-500/40 flex items-center gap-2 transition cursor-pointer"
@@ -100,6 +107,33 @@ export const AdminDashboardView: React.FC = () => {
             <span>Provision New User</span>
           </button>
         </div>
+      </div>
+
+      {/* Institution License Banner */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs">
+            <Building2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>PSR Engineering College</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                Institution Pro Active
+              </span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+              Seat Quota: <strong>743 / 1000</strong> Students Enrolled • <strong>14 / 20</strong> Faculty • <strong>2 / 5</strong> Admins • Valid until 31 Aug 2027
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => navigate('/admin/subscription')}
+          className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:bg-indigo-50 dark:hover:bg-slate-800 transition cursor-pointer self-start sm:self-auto"
+        >
+          Manage License & Seats →
+        </button>
       </div>
 
       {/* 2. Top Statistics Cards */}

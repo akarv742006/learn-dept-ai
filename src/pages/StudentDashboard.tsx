@@ -53,9 +53,12 @@ export const StudentDashboard: React.FC = () => {
       {/* 1. Header Banner */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2 relative z-10">
-          <div className="flex items-center gap-2 text-cyan-300 font-extrabold text-xs uppercase tracking-wider">
+          <div className="flex flex-wrap items-center gap-2 text-cyan-300 font-extrabold text-xs uppercase tracking-wider">
             <Sparkles className="w-4 h-4 text-cyan-400" />
             <span>LearnDebt AI Student Portal • {user?.department || 'Computer Science'}</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/40">
+              PSR Engineering College • Campus License Active
+            </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
             Good Morning, {firstName} 👋

@@ -55,6 +55,7 @@ import { AdminAITestPage } from './pages/AdminAITestPage';
 import { AdminDatabaseStatusPage } from './pages/AdminDatabaseStatusPage';
 import { AdminRevenuePage } from './pages/AdminRevenuePage';
 import { AdminRevenueForecastPage } from './pages/AdminRevenueForecastPage';
+import { AdminSubscriptionPage } from './pages/AdminSubscriptionPage';
 
 export function App() {
   return (
@@ -127,7 +128,8 @@ export function App() {
               <Route path="reports" element={<AdminReports />} />
               <Route path="revenue" element={<AdminRevenuePage />} />
               <Route path="revenue/forecast" element={<AdminRevenueForecastPage />} />
-              <Route path="subscriptions" element={<AdminRevenuePage />} />
+              <Route path="subscription" element={<AdminSubscriptionPage />} />
+              <Route path="subscriptions" element={<AdminSubscriptionPage />} />
               <Route path="analytics" element={<AdminRevenuePage />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="ai-test" element={<AdminAITestPage />} />

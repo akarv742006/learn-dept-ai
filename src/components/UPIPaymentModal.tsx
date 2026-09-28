@@ -13,6 +13,8 @@ import type { SubscriptionPlan } from '../data/subscriptionPlans';
 import { subscriptionService } from '../services/subscriptionService';
 import { useAuth } from '../context/AuthContext';
 import { subscriptionApi } from '../api/subscriptionApi';
+import { saasApi } from '../api/saasApi';
+import { Building2, Users, ShieldCheck } from 'lucide-react';
 
 interface UPIPaymentModalProps {
   isOpen: boolean;
@@ -73,6 +75,27 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   const handleConfirmPayment = async (referenceUtr?: string) => {
     setIsVerifying(true);
     try {
+      if (plan?.id === 'institution-pro' || plan?.id === 'institution') {
+        await saasApi.activateDemoSubscription({
+          organizationId: 'org_psr_eng',
+          planId: 'institution_pro',
+          userId: user?.id || 'admin_user',
+          userRole: user?.role || 'admin',
+          adminName: user?.name || 'Administrator'
+        });
+        subscriptionService.processDemoPayment(
+          user?.id || 'admin_user',
+          user?.name || 'Administrator',
+          user?.email || 'admin@university.edu',
+          'institution-pro',
+          'Annual'
+        );
+        onSuccess(
+          `Demo Subscription Activated for PSR Engineering College! Plan: Institution Pro (₹25,000 / year). 1000 Student Seats, 20 Teacher Seats, 5 Admin Seats active. Demo Payment — No real money charged.`
+        );
+        return;
+      }
+
       if (plan) {
         await subscriptionApi.checkout({
           userId: user?.id || 'student_arun',
@@ -81,6 +104,13 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
           amount: currentAmount,
           paymentProvider: 'upi_gpay_demo'
         });
+        subscriptionService.processDemoPayment(
+          user?.id || 'student_arun',
+          user?.name || 'Student User',
+          user?.email || 'user@student.edu',
+          plan.id,
+          billingPeriod
+        );
         onSuccess(
           `Payment of ₹${currentAmount} to ${UPI_PAYEE_NAME} (${UPI_ID}) confirmed & persisted to MongoDB! ${
             referenceUtr ? `Ref UTR: ${referenceUtr}.` : ''
@@ -125,8 +155,78 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
           </button>
         </div>
 
-        {/* Selected Plan / Amount Info Banner */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between">
+        {plan?.id === 'institution-pro' ? (
+          <div className="space-y-5">
+            <div className="text-center space-y-1.5 p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                Institutional License
+              </span>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">Institution Pro</h3>
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">₹25,000</span>
+                <span className="text-sm font-semibold text-slate-500">/ year</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                PSR Engineering College • Campus Prerequisite Intelligence Engine
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-center">
+              <div>
+                <div className="text-xl font-black text-blue-600 dark:text-blue-400">1000</div>
+                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Student Seats</div>
+              </div>
+              <div>
+                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">20</div>
+                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Teacher Seats</div>
+              </div>
+              <div>
+                <div className="text-xl font-black text-purple-600 dark:text-purple-400">5</div>
+                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Admin Seats</div>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-xs">
+              {[
+                'Learning Debt Analytics',
+                'Teacher Dashboard',
+                'AI Intervention',
+                'Institutional Reports'
+              ].map((f, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{f}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-center text-xs font-bold text-amber-800 dark:text-amber-300">
+              🛡️ Demo Payment — No real money charged
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmPayment()}
+                disabled={isVerifying}
+                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Activate Demo Subscription</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Selected Plan / Amount Info Banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between">
           <div>
             <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">
               {plan ? `${plan.name} (${billingPeriod})` : 'Direct Payment'}
@@ -374,6 +474,8 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

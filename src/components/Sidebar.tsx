@@ -56,6 +56,7 @@ export const Sidebar: React.FC = () => {
     } else if (currentRole === 'admin') {
       return [
         { path: '/admin/dashboard', label: 'Admin Dashboard', icon: ShieldCheck },
+        { path: '/admin/subscription', label: 'Institution Subscription', icon: CreditCard },
         { path: '/admin/revenue', label: 'Revenue & MRR', icon: DollarSign },
         { path: '/admin/revenue/forecast', label: 'Forecast Simulator', icon: TrendingUp },
         { path: '/pricing', label: 'Public Pricing Page', icon: CreditCard },

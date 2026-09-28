@@ -45,9 +45,12 @@ export const TeacherDashboard: React.FC = () => {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 text-cyan-300 font-extrabold text-xs uppercase tracking-wider mb-1">
+          <div className="flex flex-wrap items-center gap-2 text-cyan-300 font-extrabold text-xs uppercase tracking-wider mb-1">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>Educator Portal • Department of Computer Science</span>
+            <span>Educator Portal • Department of {user?.department || 'Computer Science'}</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/40">
+              PSR Engineering College • 14/20 Faculty Seats Active
+            </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
             Good Morning, {user?.name || 'Dr. Rajesh Sharma'} 👋

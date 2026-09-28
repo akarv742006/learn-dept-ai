@@ -103,3 +103,18 @@ class StaffAIQuestionGenRequest(BaseModel):
 class BatchQuestionsCreateRequest(BaseModel):
     questions: List[StaffQuestionCreateRequest]
 
+# SaaS & Subscription Upgrade Schemas
+class DemoSubscriptionActivateRequest(BaseModel):
+    organizationId: str = "org_psr_eng"
+    planId: str = "institution_pro"
+    userId: Optional[str] = "admin_user"
+    userRole: Optional[str] = "admin"
+    adminName: Optional[str] = "Admin Officer"
+
+class OrganizationMemberAddRequest(BaseModel):
+    name: str
+    email: EmailStr
+    role: str = "student"  # student, teacher, admin
+    department: Optional[str] = "Computer Science"
+    userId: Optional[str] = None
+

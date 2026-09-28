@@ -51,6 +51,16 @@ def startup_event():
     print("[INIT] FastAPI Backend starting up...")
     db = get_db()
     print(f"[INIT] Database connected successfully: {db}")
+    if db["users"].count_documents({}) == 0:
+        print("[INIT] Database users empty. Auto-seeding initial users and academic datasets...")
+        try:
+            from scripts.seed import seed_database
+            seed_database()
+        except Exception as e:
+            print(f"[INIT] Error running seed: {e}")
+    from app.services.saas_service import init_saas_data
+    init_saas_data()
+    print("[INIT] SaaS Plans, Organizations and Seat Quotas initialized.")
 
 if __name__ == "__main__":
     import uvicorn
