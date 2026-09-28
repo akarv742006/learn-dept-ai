@@ -20,12 +20,12 @@ export const DEMO_USERS: Record<UserRole, User> = {
     department: 'Computer Science & Engineering',
   },
   parent: {
-    id: 'user-prn-301',
-    name: 'Mr. Kumar',
-    email: 'kumar.parent@learndebt.ai',
+    id: 'parent_ramesh',
+    name: 'Ramesh Sharma',
+    email: 'ramesh.sharma@parent.org',
     role: 'parent',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-    childStudentId: 'std-arun-102',
+    childStudentId: 'student_arun',
   },
   admin: {
     id: 'user-adm-401',

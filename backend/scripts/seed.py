@@ -28,8 +28,9 @@ def seed_database():
 
     now = datetime.utcnow()
 
-    # 1. Users
+    # 1. Users (Students, Staff, Parents, Admins)
     users_data = [
+        # Students
         {
             "_id": "student_arun",
             "name": "Arun Kumar",
@@ -38,20 +39,109 @@ def seed_database():
             "role": "student",
             "department": "Computer Science",
             "year": "3rd Year",
+            "rollNumber": "CS2023-042",
+            "phone": "+91 98450 11223",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Arun",
             "createdAt": now,
             "updatedAt": now,
             "lastLoginAt": now
         },
         {
+            "_id": "student_priya",
+            "name": "Priya Patel",
+            "email": "priya.patel@student.edu",
+            "passwordHash": hash_password("student123"),
+            "role": "student",
+            "department": "AI & Data Science",
+            "year": "2nd Year",
+            "rollNumber": "AI2023-018",
+            "phone": "+91 98450 44556",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PriyaP",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "student_rahul",
+            "name": "Rahul Verma",
+            "email": "rahul.verma@student.edu",
+            "passwordHash": hash_password("student123"),
+            "role": "student",
+            "department": "Information Technology",
+            "year": "4th Year",
+            "rollNumber": "IT2023-055",
+            "phone": "+91 98450 77889",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=RahulV",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+
+        # Staff / Teachers
+        {
             "_id": "teacher_rajesh",
             "name": "Dr. Rajesh Sharma",
             "email": "rajesh@teacher.edu",
             "passwordHash": hash_password("teacher123"),
             "role": "teacher",
+            "staffId": "STAFF-CS-01",
+            "designation": "Associate Professor & Head of Dept",
             "department": "Computer Science",
+            "phone": "+91 99112 23344",
             "year": "Faculty",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "teacher_priya_sharma",
+            "name": "Ms. Priya Sharma",
+            "email": "priya.sharma@learndebt.ai",
+            "passwordHash": hash_password("teacher123"),
+            "role": "teacher",
+            "staffId": "STAFF-CS-02",
+            "designation": "Assistant Professor",
+            "department": "Computer Science & Engineering",
+            "phone": "+91 99112 55667",
+            "year": "Faculty",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PriyaSharma",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "teacher_suresh",
+            "name": "Prof. Suresh Nair",
+            "email": "suresh.nair@learndebt.ai",
+            "passwordHash": hash_password("teacher123"),
+            "role": "teacher",
+            "staffId": "STAFF-IT-01",
+            "designation": "Senior Professor & Academic Dean",
+            "department": "Information Technology",
+            "phone": "+91 99112 88990",
+            "year": "Faculty",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=SureshNair",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+
+        # Parents
+        {
+            "_id": "parent_ramesh",
+            "name": "Ramesh Sharma",
+            "email": "ramesh.sharma@parent.org",
+            "phone": "+91 98450 12345",
+            "pin": "1234",
+            "passwordHash": hash_password("parent123"),
+            "role": "parent",
+            "linkedStudentId": "student_arun",
+            "linkedStudentName": "Arun Kumar",
+            "childRollNo": "CS2023-042",
+            "preferredLanguage": "hi",
+            "relationship": "Father",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Ramesh",
             "createdAt": now,
             "updatedAt": now,
             "lastLoginAt": now
@@ -60,18 +150,63 @@ def seed_database():
             "_id": "parent_sarah",
             "name": "Sarah Jenkins",
             "email": "sarah@parent.org",
+            "phone": "+91 98765 43210",
+            "pin": "1234",
             "passwordHash": hash_password("parent123"),
             "role": "parent",
             "linkedStudentId": "student_arun",
+            "linkedStudentName": "Arun Kumar",
+            "childRollNo": "CS2023-042",
+            "preferredLanguage": "en",
+            "relationship": "Mother / Guardian",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
             "createdAt": now,
             "updatedAt": now,
             "lastLoginAt": now
         },
         {
+            "_id": "parent_sunita",
+            "name": "Sunita Patel",
+            "email": "sunita.patel@parent.org",
+            "phone": "+91 97123 45678",
+            "pin": "1234",
+            "passwordHash": hash_password("parent123"),
+            "role": "parent",
+            "linkedStudentId": "student_priya",
+            "linkedStudentName": "Priya Patel",
+            "childRollNo": "AI2023-018",
+            "preferredLanguage": "hi",
+            "relationship": "Mother",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sunita",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "parent_rajesh_v",
+            "name": "Rajesh Verma",
+            "email": "rajesh.verma@parent.org",
+            "phone": "+91 98234 56789",
+            "pin": "1234",
+            "passwordHash": hash_password("parent123"),
+            "role": "parent",
+            "linkedStudentId": "student_rahul",
+            "linkedStudentName": "Rahul Verma",
+            "childRollNo": "IT2023-055",
+            "preferredLanguage": "en",
+            "relationship": "Father",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=RajeshVerma",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+
+        # Admin
+        {
             "_id": "admin_system",
             "name": "Admin System",
             "email": "admin@learndebt.ai",
+            "phone": "+91 90000 00000",
             "passwordHash": hash_password("admin123"),
             "role": "admin",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
@@ -82,20 +217,61 @@ def seed_database():
     ]
     db["users"].insert_many(users_data)
 
-    # 2. Student Profile
-    db["students"].insert_one({
-        "userId": "student_arun",
-        "rollNumber": "CS2023-042",
-        "department": "Computer Science",
-        "year": "3rd Year",
-        "subjects": ["DBMS", "Data Structures", "Java", "Mathematics"],
-        "overallPerformance": 78,
-        "learningDebt": 42,
-        "riskLevel": "Medium",
-        "attendance": 92,
-        "createdAt": now,
-        "updatedAt": now
-    })
+    # 2. Student Profiles
+    students_data = [
+        {
+            "userId": "student_arun",
+            "name": "Arun Kumar",
+            "rollNumber": "CS2023-042",
+            "department": "Computer Science",
+            "year": "3rd Year",
+            "phone": "+91 98450 11223",
+            "linkedParentName": "Ramesh Sharma",
+            "linkedParentPhone": "+91 98450 12345",
+            "subjects": ["DBMS", "Data Structures", "Computer Networks", "Mathematics"],
+            "overallPerformance": 78,
+            "learningDebt": 68,
+            "riskLevel": "High",
+            "attendance": 92,
+            "createdAt": now,
+            "updatedAt": now
+        },
+        {
+            "userId": "student_priya",
+            "name": "Priya Patel",
+            "rollNumber": "AI2023-018",
+            "department": "AI & Data Science",
+            "year": "2nd Year",
+            "phone": "+91 98450 44556",
+            "linkedParentName": "Sunita Patel",
+            "linkedParentPhone": "+91 97123 45678",
+            "subjects": ["Python", "Linear Algebra", "Data Structures", "Statistics"],
+            "overallPerformance": 84,
+            "learningDebt": 34,
+            "riskLevel": "Medium",
+            "attendance": 95,
+            "createdAt": now,
+            "updatedAt": now
+        },
+        {
+            "userId": "student_rahul",
+            "name": "Rahul Verma",
+            "rollNumber": "IT2023-055",
+            "department": "Information Technology",
+            "year": "4th Year",
+            "phone": "+91 98450 77889",
+            "linkedParentName": "Rajesh Verma",
+            "linkedParentPhone": "+91 98234 56789",
+            "subjects": ["Cloud Computing", "Information Security", "Software Engineering"],
+            "overallPerformance": 91,
+            "learningDebt": 14,
+            "riskLevel": "Low",
+            "attendance": 98,
+            "createdAt": now,
+            "updatedAt": now
+        }
+    ]
+    db["students"].insert_many(students_data)
 
     # 3. Comprehensive Question Bank across multiple subjects and concepts
     raw_questions = [

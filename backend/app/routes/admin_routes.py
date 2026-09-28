@@ -145,3 +145,92 @@ def test_and_connect_mongodb(req: MongoConnectRequest):
         "databaseName": db_name
     }
 
+@router.get("/directory")
+def get_directory():
+    """Returns all students, staff, and parents stored in the database with their profiles"""
+    db = get_db()
+    users = list(db["users"].find({}))
+    if len(users) <= 1:
+        run_seed()
+        users = list(db["users"].find({}))
+
+    students_db = list(db["students"].find({}))
+    student_meta = {s.get("userId"): s for s in students_db}
+
+    students = []
+    staff = []
+    parents = []
+
+    for u in users:
+        uid = str(u.get("_id", u.get("id")))
+        role = u.get("role", "student").lower()
+        if role == "student":
+            s_doc = student_meta.get(uid, {})
+            students.append({
+                "id": uid,
+                "name": u.get("name"),
+                "email": u.get("email"),
+                "phone": u.get("phone", s_doc.get("phone", "+91 98450 11223")),
+                "rollNumber": u.get("rollNumber") or s_doc.get("rollNumber", "CS2023-042"),
+                "department": u.get("department") or s_doc.get("department", "Computer Science"),
+                "year": u.get("year") or s_doc.get("year", "3rd Year"),
+                "attendance": s_doc.get("attendance", 92),
+                "learningDebt": s_doc.get("learningDebt", 42),
+                "riskLevel": s_doc.get("riskLevel", "Medium"),
+                "overallPerformance": s_doc.get("overallPerformance", 78),
+                "linkedParentName": s_doc.get("linkedParentName", "Ramesh Sharma"),
+                "linkedParentPhone": s_doc.get("linkedParentPhone", "+91 98450 12345")
+            })
+        elif role in ["teacher", "admin"]:
+            staff.append({
+                "id": uid,
+                "name": u.get("name"),
+                "email": u.get("email"),
+                "phone": u.get("phone", "+91 99112 23344"),
+                "role": role,
+                "staffId": u.get("staffId", f"STAFF-{uid[-4:]}"),
+                "designation": u.get("designation", "Faculty Member"),
+                "department": u.get("department", "Computer Science"),
+                "year": u.get("year", "Faculty")
+            })
+        elif role == "parent":
+            parents.append({
+                "id": uid,
+                "name": u.get("name"),
+                "email": u.get("email"),
+                "phone": u.get("phone", "+91 98450 12345"),
+                "relationship": u.get("relationship", "Parent"),
+                "preferredLanguage": u.get("preferredLanguage", "hi"),
+                "linkedStudentId": u.get("linkedStudentId", "student_arun"),
+                "linkedStudentName": u.get("linkedStudentName", "Arun Kumar"),
+                "childRollNo": u.get("childRollNo", "CS2023-042")
+            })
+
+    return {
+        "summary": {
+            "totalStudents": len(students),
+            "totalStaff": len(staff),
+            "totalParents": len(parents),
+            "totalDirectory": len(students) + len(staff) + len(parents)
+        },
+        "students": students,
+        "staff": staff,
+        "parents": parents
+    }
+
+@router.post("/sync-firebase-directory")
+def sync_firebase_directory():
+    """Syncs all students, staff, and parents in MongoDB to Firebase Realtime DB / Firestore"""
+    from app.services.firebase_service import sync_all_directory_to_firebase
+    db = get_db()
+    users_check = db["users"].count_documents({})
+    if users_check <= 1:
+        run_seed()
+
+    res = sync_all_directory_to_firebase(db)
+    return {
+        "success": True,
+        "message": f"Successfully synced {res['total']} records (Students: {res['students']}, Staff: {res['staff']}, Parents: {res['parents']}) to Firebase!",
+        "stats": res
+    }
+
