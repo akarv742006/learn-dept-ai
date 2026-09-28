@@ -162,31 +162,31 @@ export const RegisterPage: React.FC = () => {
             <div className="space-y-4 text-xs">
               <div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">Personal & College Information</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                <p className="text-slate-600 dark:text-slate-300 text-xs mt-1">
                   Connect your profile to your college and institutional database.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Full Name</label>
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">Full Name</label>
                   <input
                     type="text"
                     placeholder="e.g. Arun Kumar"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Email Address</label>
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">Email Address</label>
                   <input
                     type="email"
                     placeholder="arun@student.edu"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -194,21 +194,21 @@ export const RegisterPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">College / Institution</label>
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">College / Institution</label>
                   <select
                     value={formData.college}
                     onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                   >
-                    <option value="Anna University">Anna University (AU Chennai)</option>
-                    <option value="IIT Madras">IIT Madras</option>
-                    <option value="NIT Trichy">NIT Trichy</option>
-                    <option value="PSG College of Technology">PSG College of Technology</option>
-                    <option value="Delhi Technological University">Delhi Technological University</option>
+                    <option value="Anna University" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Anna University (AU Chennai)</option>
+                    <option value="IIT Madras" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">IIT Madras</option>
+                    <option value="NIT Trichy" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">NIT Trichy</option>
+                    <option value="PSG College of Technology" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">PSG College of Technology</option>
+                    <option value="Delhi Technological University" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Delhi Technological University</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">
                     {selectedRole === 'student' ? 'Roll / Register Number' : selectedRole === 'teacher' ? 'Staff ID' : 'Student Roll Number'}
                   </label>
                   <input
@@ -216,7 +216,7 @@ export const RegisterPage: React.FC = () => {
                     placeholder="AU-2026-0042"
                     value={formData.studentId}
                     onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -224,26 +224,26 @@ export const RegisterPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Department</label>
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">Department</label>
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                   >
-                    <option value="Computer Science">Computer Science & Engineering</option>
-                    <option value="AI & Data Science">AI & Data Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics & Communication">Electronics & Communication</option>
+                    <option value="Computer Science" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Computer Science & Engineering</option>
+                    <option value="AI & Data Science" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">AI & Data Science</option>
+                    <option value="Information Technology" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Information Technology</option>
+                    <option value="Electronics & Communication" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Electronics & Communication</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Password</label>
+                  <label className="block font-bold mb-1.5 text-slate-800 dark:text-slate-200 text-xs">Password</label>
                   <input
                     type="password"
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -251,47 +251,47 @@ export const RegisterPage: React.FC = () => {
 
               {/* Special Section: Automatic Parent Account Creation for Students */}
               {selectedRole === 'student' && (
-                <div className="p-4 bg-gradient-to-br from-indigo-50/70 to-blue-50/60 dark:from-indigo-950/40 dark:to-blue-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800 space-y-3">
-                  <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold">
-                    <HeartHandshake className="w-4 h-4 text-emerald-600" />
-                    <span>Parent Details (Auto-Creates Linked Parent Login)</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                <div className="p-4 bg-gradient-to-br from-indigo-50/70 to-blue-50/60 dark:from-slate-800/80 dark:to-indigo-950/60 rounded-2xl border border-indigo-200 dark:border-indigo-600/60 space-y-3 shadow-sm">
+                  <div className="flex items-center gap-2 text-indigo-700 dark:text-cyan-300 font-bold">
+                    <HeartHandshake className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                    <span className="text-slate-900 dark:text-white">Parent Details (Auto-Creates Linked Parent Login)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 font-bold">
                       தமிழ் / English
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
                     A linked Parent account will be automatically generated and synced to Firebase Realtime Database. Your parents can sign in using their phone or PIN to view your academic growth.
                   </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block font-medium mb-1 text-slate-600 dark:text-slate-400 text-[11px]">Parent Name</label>
+                      <label className="block font-bold mb-1 text-slate-800 dark:text-slate-200 text-[11px]">Parent Name</label>
                       <input
                         type="text"
                         placeholder="e.g. Ramesh Krishnan"
                         value={formData.parentName}
                         onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="block font-medium mb-1 text-slate-600 dark:text-slate-400 text-[11px]">Parent Mobile Number</label>
+                      <label className="block font-bold mb-1 text-slate-800 dark:text-slate-200 text-[11px]">Parent Mobile Number</label>
                       <input
                         type="tel"
                         placeholder="+91 63797 62186"
                         value={formData.parentPhone}
                         onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="block font-medium mb-1 text-slate-600 dark:text-slate-400 text-[11px]">Parent Login PIN</label>
+                      <label className="block font-bold mb-1 text-slate-800 dark:text-slate-200 text-[11px]">Parent Login PIN</label>
                       <input
                         type="text"
                         maxLength={4}
                         placeholder="1234"
                         value={formData.parentPin}
                         onChange={(e) => setFormData({ ...formData, parentPin: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 text-center tracking-widest"
                       />
                     </div>
                   </div>
