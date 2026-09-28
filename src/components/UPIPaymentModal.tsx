@@ -34,8 +34,6 @@ interface UPIPaymentModalProps {
 export const UPI_PAYEE_NAME = 'AKASH K';
 export const UPI_ID = 'akashkrishnamoorthi89@oksbi';
 
-const PRESET_AMOUNTS = [1, 2, 10, 100];
-
 export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   isOpen,
   onClose,
@@ -48,7 +46,6 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [utrNumber, setUtrNumber] = useState('');
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [paymentStep, setPaymentStep] = useState<'idle' | 'processing' | 'verifying' | 'success' | 'error'>('idle');
@@ -59,16 +56,14 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   // Free plan does not accept payment and should never render the modal
   if (!isOpen || plan?.id === 'free') return null;
 
-  const isInstitution = plan?.id === 'institution-pro' || plan?.id === 'institution_pro' || plan?.id === 'institution';
   const isTeacher = plan?.id === 'teacher';
-  const defaultAmount = isInstitution
-    ? (billingPeriod === 'Annual' ? 25000 : 2500)
-    : isTeacher
-    ? (billingPeriod === 'Annual' ? (plan?.priceAnnual || 50) : (plan?.priceMonthly || 10))
-    : (billingPeriod === 'Annual' ? (plan?.priceAnnual || 999) : (plan?.priceMonthly || 99));
+  const isEnterprise = plan?.id === 'enterprise' || plan?.id === 'institution' || plan?.id === 'institution-pro';
+  const isInstitution = isEnterprise;
+  const currentAmount = billingPeriod === 'Annual'
+    ? (plan?.priceAnnual ?? 10)
+    : (plan?.priceMonthly ?? 1);
 
-  const currentAmount = selectedPreset !== null && !isInstitution ? selectedPreset : defaultAmount;
-  const planDisplayName = plan?.name || (isInstitution ? 'Institution Pro' : isTeacher ? 'Teacher Plan' : 'Student Pro');
+  const planDisplayName = plan?.name || (isEnterprise ? 'Enterprise Plan' : isTeacher ? 'Teacher Plan' : 'Student Pro');
 
   // Construct standard UPI deep link using akashkrishnamoorthi89@oksbi
   const upiDeepLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(
@@ -230,10 +225,10 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                {isInstitution ? 'Institution Campus License' : isTeacher ? 'Upgrade to Teacher Plan' : 'Upgrade to Student Pro'}
+                Upgrade to {planDisplayName}
               </h3>
               <p className="text-[11px] text-slate-500 font-semibold">
-                UPI / Google Pay Compatible Demo • ₹{currentAmount} {isInstitution ? '/ year' : '/ month'}
+                UPI / Google Pay Compatible Demo • ₹{currentAmount} {billingPeriod === 'Annual' ? '/ year' : '/ month'}
               </p>
             </div>
           </div>
@@ -468,41 +463,20 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                   </div>
                 </div>
 
-                {/* Preset quick test amounts for Student and Teacher */}
-                {!isInstitution && (
-                  <div className="space-y-1.5 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
-                        ⚡ Quick Test Amounts:
-                      </span>
-                      {selectedPreset !== null && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPreset(null)}
-                          className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
-                        >
-                          Reset to default (₹{defaultAmount})
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {PRESET_AMOUNTS.map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setSelectedPreset(amt)}
-                          className={`py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center ${
-                            currentAmount === amt
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400'
-                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>₹{amt}</span>
-                        </button>
-                      ))}
-                    </div>
+                {/* Single Exact Payment Amount Badge */}
+                <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/80 rounded-2xl border border-blue-200/60 dark:border-slate-700 flex items-center justify-between shadow-xs">
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider block">
+                      Payable Amount:
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {planDisplayName} ({billingPeriod})
+                    </span>
                   </div>
-                )}
+                  <div className="px-4 py-1.5 rounded-xl bg-blue-600 text-white font-black text-lg shadow-sm">
+                    ₹{currentAmount}
+                  </div>
+                </div>
 
                 {/* Copy UPI Box */}
                 <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">

@@ -20,10 +20,6 @@ export const PricingPage: React.FC = () => {
     if (plan.id === 'free') {
       return; // Free plan requires no payment and cannot be clicked
     }
-    if (plan.id === 'enterprise') {
-      alert('Enterprise Sales Inquiry submitted! A LearnDebt AI institutional specialist will contact your administration within 24 hours.');
-      return;
-    }
     setSelectedPlan(plan);
   };
 
@@ -140,18 +136,14 @@ export const PricingPage: React.FC = () => {
                 </div>
 
                 <div className="py-2 border-y border-slate-100 dark:border-slate-800">
-                  {plan.id === 'enterprise' ? (
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">Custom Quotation</span>
-                  ) : (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-slate-900 dark:text-white">
-                        {plan.currency}{displayPrice}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-500">
-                        / {billingPeriod === 'Annual' ? 'year' : 'month'}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-slate-900 dark:text-white">
+                      {plan.currency}{displayPrice}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      / {billingPeriod === 'Annual' ? 'year' : 'month'}
+                    </span>
+                  </div>
                   <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mt-1">
                     ⚡ {plan.aiRequestLimitMonthly} AI Prompts / mo
                   </div>
