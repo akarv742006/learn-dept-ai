@@ -175,7 +175,7 @@ export const RegisterPage: React.FC = () => {
                     placeholder="e.g. Arun Kumar"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -186,7 +186,7 @@ export const RegisterPage: React.FC = () => {
                     placeholder="arun@student.edu"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -198,13 +198,13 @@ export const RegisterPage: React.FC = () => {
                   <select
                     value={formData.college}
                     onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                   >
-                    <option value="Anna University" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Anna University (AU Chennai)</option>
-                    <option value="IIT Madras" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">IIT Madras</option>
-                    <option value="NIT Trichy" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">NIT Trichy</option>
-                    <option value="PSG College of Technology" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">PSG College of Technology</option>
-                    <option value="Delhi Technological University" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Delhi Technological University</option>
+                    <option value="Anna University" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Anna University (AU Chennai)</option>
+                    <option value="IIT Madras" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">IIT Madras</option>
+                    <option value="NIT Trichy" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">NIT Trichy</option>
+                    <option value="PSG College of Technology" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">PSG College of Technology</option>
+                    <option value="Delhi Technological University" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Delhi Technological University</option>
                   </select>
                 </div>
                 <div>
@@ -216,7 +216,7 @@ export const RegisterPage: React.FC = () => {
                     placeholder="AU-2026-0042"
                     value={formData.studentId}
                     onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -228,12 +228,12 @@ export const RegisterPage: React.FC = () => {
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                   >
-                    <option value="Computer Science" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Computer Science & Engineering</option>
-                    <option value="AI & Data Science" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">AI & Data Science</option>
-                    <option value="Information Technology" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Information Technology</option>
-                    <option value="Electronics & Communication" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Electronics & Communication</option>
+                    <option value="Computer Science" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Computer Science & Engineering</option>
+                    <option value="AI & Data Science" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">AI & Data Science</option>
+                    <option value="Information Technology" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Information Technology</option>
+                    <option value="Electronics & Communication" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Electronics & Communication</option>
                   </select>
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export const RegisterPage: React.FC = () => {
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition shadow-inner"
                     required
                   />
                 </div>
@@ -270,7 +270,7 @@ export const RegisterPage: React.FC = () => {
                         placeholder="e.g. Ramesh Krishnan"
                         value={formData.parentName}
                         onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                       />
                     </div>
                     <div>
@@ -280,7 +280,7 @@ export const RegisterPage: React.FC = () => {
                         placeholder="+91 63797 62186"
                         value={formData.parentPhone}
                         onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                       />
                     </div>
                     <div>
@@ -291,7 +291,7 @@ export const RegisterPage: React.FC = () => {
                         placeholder="1234"
                         value={formData.parentPin}
                         onChange={(e) => setFormData({ ...formData, parentPin: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 text-center tracking-widest"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 text-center tracking-widest"
                       />
                     </div>
                   </div>

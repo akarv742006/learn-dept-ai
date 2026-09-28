@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --bg-light: #f8fafc;
@@ -18,6 +20,31 @@
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
+  }
+
+  .dark body {
+    background-color: #020617;
+    color: #f8fafc;
+  }
+
+  /* Universal high-contrast inputs and form controls for dark mode */
+  .dark input,
+  .dark select,
+  .dark textarea {
+    color: #f8fafc !important;
+    background-color: #1e293b;
+    border-color: #334155;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+  }
+
+  .dark select option {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
   }
 }
 
