@@ -11,7 +11,7 @@ from app.models import (
 )
 from app.database import get_db
 from app.config import settings
-from app.services.firebase_service import sync_subscription_to_firebase
+from app.services.firebase_service import sync_subscription_to_firebase, sync_payment_to_firebase
 from app.services.saas_service import (
     PLANS_DEFINITIONS,
     init_saas_data,
@@ -228,6 +228,7 @@ def create_demo_payment(
         "disclaimer": "DEMO PAYMENT — NO REAL MONEY CHARGED"
     }
     db["payments"].insert_one(pay_doc)
+    sync_payment_to_firebase(pay_doc)
     
     return {
         "success": True,
@@ -378,8 +379,19 @@ def confirm_demo_payment(
         }}
     )
     
-    # Synchronize with Firebase (resilient fallback)
+    # Synchronize with Firebase Realtime Database
     fb_sync = sync_subscription_to_firebase(user_id, sub_doc)
+    fb_pay_sync = sync_payment_to_firebase({
+        "payment_id": pay_id,
+        "user_id": user_id,
+        "plan_id": plan_id,
+        "amount": payment.get("amount", 2),
+        "currency": payment.get("currency", "INR"),
+        "status": "SUCCESS",
+        "payment_method": "DEMO_UPI",
+        "upi_id": "akashkrishnamoorthi89@oksbi",
+        "utr_number": utr_val
+    })
     
     # Audit notification
     db["notifications"].insert_one({
