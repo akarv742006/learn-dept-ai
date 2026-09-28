@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, UserCheck, HeartHandshake, ArrowRight, CheckCircle2, ShieldCheck, Building2, PhoneCall, Sparkles } from 'lucide-react';
+import { GraduationCap, UserCheck, HeartHandshake, ArrowRight, CheckCircle2, ShieldCheck, Building2, PhoneCall, Sparkles, Database } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
+import { firebaseSync } from '../services/firebase';
 import type { UserRole } from '../types/debt';
 
 export const RegisterPage: React.FC = () => {
@@ -24,6 +25,7 @@ export const RegisterPage: React.FC = () => {
     parentPin: '1234',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [firebaseStatus, setFirebaseStatus] = useState<string | null>(null);
   const [createdParentInfo, setCreatedParentInfo] = useState<{ name: string; phone: string; pin: string } | null>(null);
 
   const { loginAsRole } = useAuth();
@@ -31,46 +33,95 @@ export const RegisterPage: React.FC = () => {
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      setIsSubmitting(true);
-      const userName = formData.name.trim() || 'New User';
-      const userEmail = formData.email.trim() || `${selectedRole}_${Date.now()}@learndebt.ai`;
-      const pass = formData.password.trim() || 'password123';
-
+    
+    // When finishing Step 2, immediately sync whatever data is entered to Firebase Realtime Database
+    if (step === 2) {
+      setFirebaseStatus('Syncing to Firebase Realtime Database...');
       try {
-        const regRes = await authApi.register({
-          name: userName,
-          email: userEmail,
-          password: pass,
+        const studentIdClean = formData.studentId.trim() || `AU-${Date.now().toString().slice(-4)}`;
+        await firebaseSync.syncRegistration({
+          name: formData.name.trim() || 'Arun Kumar',
+          email: formData.email.trim() || `student_${Date.now()}@learndebt.ai`,
           role: selectedRole,
           college: formData.college,
           department: formData.department,
-          year: formData.year,
+          studentId: studentIdClean,
           phone: formData.phone || '+91 98450 11223',
           parentName: formData.parentName.trim() || 'Ramesh Krishnan',
           parentPhone: formData.parentPhone.trim() || '+91 63797 62186',
-          parentPin: formData.parentPin.trim() || '1234'
+          parentPin: formData.parentPin.trim() || '1234',
         });
-
-        if (regRes.parentName) {
-          setCreatedParentInfo({
-            name: regRes.parentName,
-            phone: regRes.parentPhone || '+91 63797 62186',
-            pin: formData.parentPin || '1234'
-          });
-        }
-      } catch (err) {
-        console.warn('Backend register sync fallback:', err);
-      } finally {
-        setIsSubmitting(false);
-        await loginAsRole(selectedRole, userName, userEmail);
-        if (selectedRole === 'student') navigate('/student/dashboard');
-        else if (selectedRole === 'teacher') navigate('/teacher/dashboard');
-        else if (selectedRole === 'parent') navigate('/parent/dashboard');
-        else navigate('/admin/dashboard');
+        setFirebaseStatus('Live data updated in Firebase Realtime Database (/students, /parents, /colleges)!');
+      } catch (fbErr) {
+        console.warn('Firebase direct sync warning:', fbErr);
       }
+      setStep(3);
+      return;
+    }
+
+    if (step < 3) {
+      setStep(step + 1);
+      return;
+    }
+
+    // Step 3 submission
+    setIsSubmitting(true);
+    const userName = formData.name.trim() || 'New User';
+    const userEmail = formData.email.trim() || `${selectedRole}_${Date.now()}@learndebt.ai`;
+    const pass = formData.password.trim() || 'password123';
+    const studentIdClean = formData.studentId.trim() || `AU-${Date.now().toString().slice(-4)}`;
+
+    // 1. Direct Firebase Realtime Database Write
+    try {
+      await firebaseSync.syncRegistration({
+        name: userName,
+        email: userEmail,
+        role: selectedRole,
+        college: formData.college,
+        department: formData.department,
+        studentId: studentIdClean,
+        phone: formData.phone || '+91 98450 11223',
+        parentName: formData.parentName.trim() || 'Ramesh Krishnan',
+        parentPhone: formData.parentPhone.trim() || '+91 63797 62186',
+        parentPin: formData.parentPin.trim() || '1234',
+      });
+      setFirebaseStatus('Verified: Updated in Firebase Realtime Database');
+    } catch (fbErr) {
+      console.warn('Firebase direct sync:', fbErr);
+    }
+
+    // 2. MongoDB Atlas Backend Write
+    try {
+      const regRes = await authApi.register({
+        name: userName,
+        email: userEmail,
+        password: pass,
+        role: selectedRole,
+        college: formData.college,
+        department: formData.department,
+        year: formData.year,
+        phone: formData.phone || '+91 98450 11223',
+        parentName: formData.parentName.trim() || 'Ramesh Krishnan',
+        parentPhone: formData.parentPhone.trim() || '+91 63797 62186',
+        parentPin: formData.parentPin.trim() || '1234'
+      });
+
+      if (regRes.parentName) {
+        setCreatedParentInfo({
+          name: regRes.parentName,
+          phone: regRes.parentPhone || '+91 63797 62186',
+          pin: formData.parentPin || '1234'
+        });
+      }
+    } catch (err) {
+      console.warn('Backend register sync fallback:', err);
+    } finally {
+      setIsSubmitting(false);
+      await loginAsRole(selectedRole, userName, userEmail);
+      if (selectedRole === 'student') navigate('/student/dashboard');
+      else if (selectedRole === 'teacher') navigate('/teacher/dashboard');
+      else if (selectedRole === 'parent') navigate('/parent/dashboard');
+      else navigate('/admin/dashboard');
     }
   };
 
@@ -160,12 +211,25 @@ export const RegisterPage: React.FC = () => {
 
           {step === 2 && (
             <div className="space-y-4 text-xs">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white">Personal & College Information</h3>
-                <p className="text-slate-600 dark:text-slate-300 text-xs mt-1">
-                  Connect your profile to your college and institutional database.
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white">Personal & College Information</h3>
+                  <p className="text-slate-600 dark:text-slate-300 text-xs mt-1">
+                    Connect your profile to your college and institutional database.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-[10px] text-emerald-700 dark:text-emerald-300 font-bold shrink-0">
+                  <Database className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                  <span>Firebase RTDB Live</span>
+                </div>
               </div>
+
+              {firebaseStatus && (
+                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-200 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{firebaseStatus}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

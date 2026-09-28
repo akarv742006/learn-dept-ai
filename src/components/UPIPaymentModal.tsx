@@ -176,16 +176,32 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
       }
       setConfirmResult(res);
 
-      // Secondary client-side Firebase sync notification
+      // Direct Firebase Realtime Database payment record sync
+      try {
+        await firebaseSync.syncPayment({
+          payment_id: sess.payment_id,
+          user_id: user?.id || (isTeacher ? 'teacher_priya' : 'student_arun'),
+          amount: currentAmount,
+          plan_id: effectivePlanId,
+          college: (user as any)?.college || 'Anna University',
+          method: methodLabel,
+          utr_number: utrNumber.trim() || undefined,
+          upi_id: UPI_ID,
+        });
+      } catch (fbPayErr) {
+        console.warn('Firebase direct payment sync warning:', fbPayErr);
+      }
+
+      // Secondary client-side Firebase subscription sync
       if (user?.id) {
         try {
-          firebaseSync.syncSubscription({
+          await firebaseSync.syncSubscription({
             firebase_uid: user.id,
             subscription_status: 'ACTIVE',
             subscription_plan: isTeacher ? 'TEACHER_PRO' : 'STUDENT_PRO',
             subscription_expires_at: res?.subscription?.expires_at || new Date(Date.now() + 30 * 86400000).toISOString(),
             synced_at: new Date().toISOString(),
-            source: 'MongoDB_Atlas',
+            source: 'Client_Direct',
             demo: true
           });
         } catch (fbErr) {
