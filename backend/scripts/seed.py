@@ -87,7 +87,7 @@ def seed_database():
             "staffId": "STAFF-CS-01",
             "designation": "Associate Professor & Head of Dept",
             "department": "Computer Science",
-            "phone": "+91 99112 23344",
+            "phone": "+91 63797 62186",
             "year": "Faculty",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh",
             "createdAt": now,

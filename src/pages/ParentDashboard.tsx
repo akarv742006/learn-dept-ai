@@ -162,7 +162,7 @@ export const ParentDashboard: React.FC = () => {
     riskLevel: 'High',
     attendance: 92,
     mentorTeacher: 'Dr. Rajesh Sharma (Head of Dept)',
-    mentorPhone: '+91 99112 23344'
+    mentorPhone: '+91 63797 62186'
   };
 
   const parentName = user?.name || data?.parent?.name || 'Ramesh Krishnan';
@@ -191,9 +191,11 @@ export const ParentDashboard: React.FC = () => {
 
   const handleWhatsAppTeacher = () => {
     const text = encodeURIComponent(
-      `வணக்கம் ${student.mentorTeacher},\nநான் ${parentName} (${student.name} மாணவரின் பெற்றோர், பதிவு எண்: ${student.rollNumber}, ${student.department}).\nLearnDebt AI மூலம் என் குழந்தையின் அறிக்கையை பார்த்தேன். நாங்கள் வீட்டில் எவ்வாறு உதவலாம் என்று கூறவும்.`
+      currentLang === 'ta'
+        ? `வணக்கம் ${student.mentorTeacher},\nநான் ${parentName} (${student.name} மாணவரின் பெற்றோர், பதிவு எண்: ${student.rollNumber}, ${student.department}).\nLearnDebt AI மூலம் என் குழந்தையின் அறிக்கையை பார்த்தேன். நாங்கள் வீட்டில் எவ்வாறு உதவலாம் என்று கூறவும்.`
+        : `Hello ${student.mentorTeacher},\nI am ${parentName} (Parent of ${student.name}, Roll: ${student.rollNumber}, ${student.department}).\nI reviewed my child's progress on LearnDebt AI. Please guide us on how we can support their study at home.`
     );
-    window.open(`https://wa.me/919911223344?text=${text}`, '_blank');
+    window.open(`https://wa.me/916379762186?text=${text}`, '_blank');
   };
 
   return (

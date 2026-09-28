@@ -186,7 +186,7 @@ def get_directory():
                 "id": uid,
                 "name": u.get("name"),
                 "email": u.get("email"),
-                "phone": u.get("phone", "+91 99112 23344"),
+                "phone": u.get("phone", "+91 63797 62186"),
                 "role": role,
                 "staffId": u.get("staffId", f"STAFF-{uid[-4:]}"),
                 "designation": u.get("designation", "Faculty Member"),

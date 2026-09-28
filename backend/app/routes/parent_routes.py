@@ -178,7 +178,7 @@ def get_parent_dashboard(
             "riskLevel": student_profile.get("riskLevel", "High" if debt > 50 else "Medium"),
             "attendance": attendance,
             "mentorTeacher": "Dr. Rajesh Sharma (Head of Dept)",
-            "mentorPhone": "+91 99112 23344"
+            "mentorPhone": "+91 63797 62186"
         },
         "trafficLight": {
             "color": light_color,
