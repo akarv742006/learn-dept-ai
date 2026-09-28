@@ -9,7 +9,7 @@
 export interface FirebaseSubscriptionState {
   firebase_uid: string;
   subscription_status: 'ACTIVE' | 'EXPIRED' | 'TRIAL' | 'FREE';
-  subscription_plan: 'STUDENT_PRO' | 'INSTITUTION_PRO' | 'FREE';
+  subscription_plan: 'STUDENT_PRO' | 'INSTITUTION_PRO' | 'TEACHER_PRO' | 'FREE';
   subscription_expires_at?: string;
   synced_at: string;
   source: 'MongoDB_Atlas';

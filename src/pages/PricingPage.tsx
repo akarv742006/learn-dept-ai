@@ -17,6 +17,9 @@ export const PricingPage: React.FC = () => {
   const currentSub = subscriptionService.getUserSubscription(user?.id || 'demo-user');
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
+    if (plan.id === 'free') {
+      return; // Free plan requires no payment and cannot be clicked
+    }
     if (plan.id === 'enterprise') {
       alert('Enterprise Sales Inquiry submitted! A LearnDebt AI institutional specialist will contact your administration within 24 hours.');
       return;
@@ -165,19 +168,34 @@ export const PricingPage: React.FC = () => {
               </div>
 
               <div className="pt-6">
-                <button
-                  onClick={() => handleSelectPlan(plan)}
-                  className={`w-full py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
-                    isCurrent
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-default'
-                      : plan.isPopular
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/20'
-                      : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:opacity-90'
-                  }`}
-                >
-                  <span>{isCurrent ? 'Current Active Plan' : plan.ctaText}</span>
-                  {!isCurrent && <ArrowRight className="w-4 h-4" />}
-                </button>
+                {plan.id === 'free' ? (
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full py-3 rounded-2xl font-extrabold text-xs transition flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-dashed border-slate-300 dark:border-slate-700 shadow-none"
+                    >
+                      <span>Included Free (No Payment Needed)</span>
+                    </button>
+                    <p className="text-[10px] text-center text-slate-400 font-semibold">
+                      Always Free • Zero Charges
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSelectPlan(plan)}
+                    className={`w-full py-3 rounded-2xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 ${
+                      isCurrent
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-default'
+                        : plan.isPopular
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-600/20'
+                        : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:opacity-90'
+                    }`}
+                  >
+                    <span>{isCurrent ? 'Current Active Plan' : plan.ctaText}</span>
+                    {!isCurrent && <ArrowRight className="w-4 h-4" />}
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -203,7 +221,7 @@ export const PricingPage: React.FC = () => {
 
       {/* Direct & Plan Payment Modal */}
       <UPIPaymentModal
-        isOpen={Boolean(selectedPlan) || isDirectUpiOpen}
+        isOpen={Boolean(selectedPlan && selectedPlan.id !== 'free') || isDirectUpiOpen}
         onClose={() => {
           setSelectedPlan(null);
           setIsDirectUpiOpen(false);
