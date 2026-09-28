@@ -126,9 +126,14 @@ class DemoPaymentCreateRequest(BaseModel):
     currency: Optional[str] = "INR"
     payment_method: Optional[str] = "DEMO_UPI"
     user_id: Optional[str] = None
+    upi_id: Optional[str] = "akashkrishnamoorthi89@oksbi"
 
 class DemoPaymentConfirmRequest(BaseModel):
     payment_id: Optional[str] = None
     paymentId: Optional[str] = None
     user_id: Optional[str] = None
+    utr_number: Optional[str] = None
+    utrNumber: Optional[str] = None
+    screenshot_url: Optional[str] = None
+    screenshotUrl: Optional[str] = None
 

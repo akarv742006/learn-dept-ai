@@ -208,10 +208,10 @@ export const saasApi = {
     });
   },
 
-  confirmDemoPayment: async (paymentId: string): Promise<DemoPaymentConfirmResult> => {
+  confirmDemoPayment: async (paymentId: string, extra?: { utr_number?: string; screenshot_url?: string }): Promise<DemoPaymentConfirmResult> => {
     return apiRequest('/payments/demo/confirm', {
       method: 'POST',
-      body: JSON.stringify({ payment_id: paymentId })
+      body: JSON.stringify({ payment_id: paymentId, ...(extra || {}) })
     });
   },
 

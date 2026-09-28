@@ -195,7 +195,7 @@ def create_demo_payment(
             "amount": existing.get("amount", amount),
             "currency": currency,
             "status": "PENDING",
-            "upi_id": "learndebt@demo",
+            "upi_id": "akashkrishnamoorthi89@oksbi",
             "demo": True,
             "disclaimer": "DEMO PAYMENT — NO REAL MONEY CHARGED",
             "message": "Existing demo payment session resumed. NO REAL MONEY CHARGED."
@@ -212,6 +212,7 @@ def create_demo_payment(
         "currency": currency,
         "status": "PENDING",
         "payment_method": req.payment_method or "DEMO_UPI",
+        "upi_id": "akashkrishnamoorthi89@oksbi",
         "demo": True,
         "mode": "demo",
         "created_at": now.isoformat(),
@@ -226,7 +227,7 @@ def create_demo_payment(
         "amount": amount,
         "currency": currency,
         "status": "PENDING",
-        "upi_id": "learndebt@demo",
+        "upi_id": "akashkrishnamoorthi89@oksbi",
         "demo": True,
         "disclaimer": "DEMO PAYMENT — NO REAL MONEY CHARGED",
         "message": "Demo payment session initiated. NO REAL MONEY CHARGED."
@@ -241,6 +242,7 @@ def confirm_demo_payment(
     Step 2 of Demo UPI Payment Flow:
     Server-side verification of demo payment.
     - Transitions payment status to SUCCESS in MongoDB
+    - Stores optional UPI Transaction Reference / UTR and Screenshot proof
     - Activates 30-day Student Pro subscription in MongoDB
     - Synchronizes subscription state with Firebase project 'learndept-ai'
     - Updates user document with is_premium = True
@@ -277,15 +279,24 @@ def confirm_demo_payment(
     expires_at = now + timedelta(days=30)
     sub_id = f"demo_sub_{uuid.uuid4().hex[:10]}"
     
+    utr_val = req.utr_number or req.utrNumber
+    screenshot_val = req.screenshot_url or req.screenshotUrl
+
+    pay_update = {
+        "status": "SUCCESS",
+        "verified_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "mode": "demo"
+    }
+    if utr_val:
+        pay_update["utr_number"] = utr_val
+    if screenshot_val:
+        pay_update["screenshot_url"] = screenshot_val
+
     # Update payment to SUCCESS
     db["payments"].update_one(
         {"$or": [{"payment_id": pay_id}, {"_id": pay_id}]},
-        {"$set": {
-            "status": "SUCCESS",
-            "verified_at": now.isoformat(),
-            "updated_at": now.isoformat(),
-            "mode": "demo"
-        }}
+        {"$set": pay_update}
     )
     
     # Deactivate previous active student subscriptions to prevent duplicates
