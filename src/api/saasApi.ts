@@ -76,6 +76,59 @@ export interface OrganizationMember {
   joined_at: string;
 }
 
+export interface UserSubscriptionState {
+  plan: string;
+  status: string;
+  is_premium: boolean;
+  demo: boolean;
+  started_at?: string;
+  expires_at?: string;
+  days_remaining: number;
+  features: string[];
+  disclaimer?: string;
+}
+
+export interface DemoPaymentSession {
+  success: boolean;
+  payment_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  upi_id: string;
+  demo: boolean;
+  disclaimer: string;
+  message: string;
+}
+
+export interface DemoPaymentConfirmResult {
+  success: boolean;
+  message: string;
+  payment: PaymentRecord;
+  subscription: {
+    subscription_id: string;
+    plan: string;
+    status: string;
+    expires_at: string;
+    days_remaining: number;
+    is_premium: boolean;
+  };
+  is_premium: boolean;
+  firebase_sync?: unknown;
+  disclaimer: string;
+}
+
+export interface AdminRevenueStats {
+  total_users: number;
+  free_users: number;
+  student_pro_users: number;
+  active_subscriptions: number;
+  total_payments_count: number;
+  successful_payments_count: number;
+  failed_payments_count: number;
+  demo_revenue_inr: number;
+  label: string;
+}
+
 export const saasApi = {
   getPlans: async (): Promise<{ plans: SaaSPlan[] }> => {
     return apiRequest('/subscriptions/plans');
@@ -140,5 +193,39 @@ export const saasApi = {
       method: 'POST',
       body: JSON.stringify(memberData)
     });
+  },
+
+  createDemoPayment: async (payload: {
+    plan_id?: string;
+    amount?: number;
+    currency?: string;
+    payment_method?: string;
+    user_id?: string;
+  }): Promise<DemoPaymentSession> => {
+    return apiRequest('/payments/demo/create', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  confirmDemoPayment: async (paymentId: string): Promise<DemoPaymentConfirmResult> => {
+    return apiRequest('/payments/demo/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ payment_id: paymentId })
+    });
+  },
+
+  getMySubscription: async (userId?: string): Promise<UserSubscriptionState> => {
+    const url = userId ? `/subscription/me?user_id=${encodeURIComponent(userId)}` : '/subscription/me';
+    return apiRequest(url);
+  },
+
+  getPaymentHistory: async (userId?: string): Promise<{ payments: PaymentRecord[]; count: number }> => {
+    const url = userId ? `/payments/history?user_id=${encodeURIComponent(userId)}` : '/payments/history';
+    return apiRequest(url);
+  },
+
+  getAdminRevenue: async (): Promise<AdminRevenueStats> => {
+    return apiRequest('/payments/admin-revenue');
   }
 };

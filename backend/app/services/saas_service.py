@@ -53,7 +53,13 @@ PLANS_DEFINITIONS = [
             "detailed_concept_analytics",
             "learning_debt_history",
             "expanded_practice",
-            "ai_study_assistance"
+            "ai_study_assistance",
+            "advanced_ai_assistant",
+            "personalized_study_plan",
+            "advanced_learning_debt",
+            "ai_practice",
+            "advanced_analytics",
+            "premium_reports"
         ],
         "display_features": [
             "Personalized 3-Day Recovery Missions",
@@ -481,6 +487,30 @@ def has_feature_access(
         if feature_name in TEACHER_RESTRICTED:
             return False
 
+    now = datetime.utcnow()
+
+    # Check user-level personal subscription (e.g. Student Pro)
+    if user_id:
+        user_sub = db["subscriptions"].find_one({
+            "$or": [{"user_id": user_id}, {"userId": user_id}],
+            "status": "active"
+        })
+        if user_sub:
+            exp_str = user_sub.get("expires_at") or user_sub.get("expiry_date")
+            is_valid = True
+            if exp_str:
+                try:
+                    exp_dt = datetime.fromisoformat(str(exp_str).replace("Z", "+00:00")).replace(tzinfo=None)
+                    if now > exp_dt:
+                        is_valid = False
+                except Exception:
+                    pass
+            if is_valid:
+                plan_id = user_sub.get("plan_id") or user_sub.get("planId") or "student_pro"
+                plan = next((p for p in PLANS_DEFINITIONS if p["plan_id"] == plan_id), None)
+                if plan and feature_name in plan["features"]:
+                    return True
+
     org_id = organization_id or "org_psr_eng"
     sub = db["subscriptions"].find_one({"organization_id": org_id, "status": "active"})
     
@@ -492,7 +522,7 @@ def has_feature_access(
     if expiry_str:
         try:
             exp_dt = datetime.fromisoformat(expiry_str.replace("Z", "+00:00")).replace(tzinfo=None)
-            if datetime.utcnow() > exp_dt:
+            if now > exp_dt:
                 return False
         except Exception:
             pass

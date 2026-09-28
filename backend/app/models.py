@@ -118,3 +118,17 @@ class OrganizationMemberAddRequest(BaseModel):
     department: Optional[str] = "Computer Science"
     userId: Optional[str] = None
 
+# Free Demo UPI Payment Schemas
+class DemoPaymentCreateRequest(BaseModel):
+    plan_id: Optional[str] = "student_pro"
+    planId: Optional[str] = None
+    amount: Optional[int] = 99
+    currency: Optional[str] = "INR"
+    payment_method: Optional[str] = "DEMO_UPI"
+    user_id: Optional[str] = None
+
+class DemoPaymentConfirmRequest(BaseModel):
+    payment_id: Optional[str] = None
+    paymentId: Optional[str] = None
+    user_id: Optional[str] = None
+

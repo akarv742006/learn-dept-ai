@@ -15,16 +15,8 @@ class MemoryCollection:
         self._store = data_store.setdefault(name, [])
 
     def find_one(self, filter_dict=None):
-        filter_dict = filter_dict or {}
-        for doc in self._store:
-            match = True
-            for k, v in filter_dict.items():
-                if doc.get(k) != v:
-                    match = False
-                    break
-            if match:
-                return dict(doc)
-        return None
+        docs = self.find(filter_dict).to_list()
+        return docs[0] if docs else None
 
     def find(self, filter_dict=None):
         filter_dict = filter_dict or {}
@@ -82,6 +74,18 @@ class MemoryCollection:
                         for k, inc_val in update_dict["$inc"].items():
                             item[k] = item.get(k, 0) + inc_val
                     break
+        return True
+
+    def update_many(self, filter_dict, update_dict):
+        docs = self.find(filter_dict).to_list()
+        matched_ids = {d.get("_id") for d in docs if d.get("_id")}
+        for item in self._store:
+            if item.get("_id") in matched_ids:
+                if "$set" in update_dict:
+                    item.update(update_dict["$set"])
+                if "$inc" in update_dict:
+                    for k, inc_val in update_dict["$inc"].items():
+                        item[k] = item.get(k, 0) + inc_val
         return True
 
     def count_documents(self, filter_dict=None):

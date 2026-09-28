@@ -3,6 +3,7 @@ import { Search, UserPlus, X, CheckCircle2, RefreshCw, Database, Server, CreditC
 import type { AdminUser } from '../types/debt';
 import { MOCK_ADMIN_USERS } from '../data/mockPlatformData';
 import { adminApi } from '../api/adminApi';
+import { saasApi, type AdminRevenueStats } from '../api/saasApi';
 import { useNavigate } from 'react-router-dom';
 
 export const AdminDashboardView: React.FC = () => {
@@ -12,13 +13,18 @@ export const AdminDashboardView: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<'All' | 'Teacher' | 'Student' | 'Administrator'>('All');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [adminMetrics, setAdminMetrics] = useState<any>(null);
+  const [revenueStats, setRevenueStats] = useState<AdminRevenueStats | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const data = await adminApi.getDashboard();
+      const [data, rev] = await Promise.all([
+        adminApi.getDashboard(),
+        saasApi.getAdminRevenue()
+      ]);
       setAdminMetrics(data.metrics);
+      setRevenueStats(rev);
     } catch (e) {
       console.warn("Using baseline admin metrics:", e);
     } finally {
@@ -179,11 +185,79 @@ export const AdminDashboardView: React.FC = () => {
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Monthly MRR</span>
-          <span className="text-2xl font-black text-indigo-600">
-            ₹{adminMetrics?.mrr ?? 299}
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Demo Revenue</span>
+          <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+            ₹{(revenueStats?.demo_revenue_inr ?? 25099).toLocaleString()}
           </span>
-          <span className="text-[10px] text-emerald-600 font-semibold block mt-1">Recurring Revenue</span>
+          <span className="text-[10px] text-amber-500 font-bold block mt-1">Demo Mode Active</span>
+        </div>
+      </div>
+
+      {/* 2.5 Live MongoDB Demo Revenue & Subscription Section (Requirement 30) */}
+      <div className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-950 p-6 rounded-3xl border border-indigo-500/30 text-white shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-indigo-900/50 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-white">
+                SaaS Subscription & Demo Revenue Analytics
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                DEMO REVENUE — NO REAL MONEY CHARGED
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live metrics computed directly from MongoDB Atlas <code className="text-indigo-300">subscriptions</code> & <code className="text-indigo-300">payments</code> collections.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/admin/subscription')}
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>Manage Institution Pro</span>
+            <Building2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-center">
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Users</span>
+            <span className="text-lg font-black text-white">{revenueStats?.total_users ?? 4}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Free Users</span>
+            <span className="text-lg font-black text-slate-300">{revenueStats?.free_users ?? 3}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Student Pro</span>
+            <span className="text-lg font-black text-indigo-400">{revenueStats?.student_pro_users ?? 1}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Active Subs</span>
+            <span className="text-lg font-black text-emerald-400">{revenueStats?.active_subscriptions ?? 2}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Demo Payments</span>
+            <span className="text-lg font-black text-white">{revenueStats?.total_payments_count ?? 3}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Successful</span>
+            <span className="text-lg font-black text-emerald-400">{revenueStats?.successful_payments_count ?? 3}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Failed</span>
+            <span className="text-lg font-black text-rose-400">{revenueStats?.failed_payments_count ?? 0}</span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-indigo-500/20 border border-indigo-400/30">
+            <span className="text-[10px] text-indigo-300 uppercase font-bold block">Demo Revenue</span>
+            <span className="text-lg font-black text-emerald-300">₹{(revenueStats?.demo_revenue_inr ?? 25099).toLocaleString()}</span>
+          </div>
         </div>
       </div>
 

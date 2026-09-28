@@ -32,6 +32,11 @@ class Settings:
     
     # Payment & Demo Mode
     DEMO_PAYMENT_MODE: bool = os.getenv("DEMO_PAYMENT_MODE", "true").lower() == "true"
+    STUDENT_PRO_PRICE_INR: int = int(os.getenv("STUDENT_PRO_PRICE_INR", "99"))
+    INSTITUTION_PRO_PRICE_INR: int = int(os.getenv("INSTITUTION_PRO_PRICE_INR", "25000"))
+
+    # Firebase Sync
+    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "learndept-ai")
     
     # Authentication & Security
     JWT_SECRET: str = os.getenv("JWT_SECRET", "learndebt_super_secret_jwt_key_2026")
@@ -48,6 +53,7 @@ class Settings:
         self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "learndebt")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "learndept-ai")
 
     def get_masked_mongodb_uri(self) -> str:
         """Return MongoDB URI with password masked for safe display in UI/logs"""
