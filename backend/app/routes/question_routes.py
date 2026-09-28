@@ -31,7 +31,7 @@ def list_questions(
 ):
     db = get_db()
     query = {}
-    if department and department != "All":
+    if department and department != "All" and "all departments" not in department.lower() and "campus" not in department.lower():
         query["$or"] = [
             {"department": {"$regex": department, "$options": "i"}},
             {"department": "All"},

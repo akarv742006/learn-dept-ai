@@ -28,12 +28,12 @@ class UserResponse(BaseModel):
 
 # Assessment Schemas
 class AssessmentGenerateRequest(BaseModel):
-    studentId: str
-    subjectId: str
+    studentId: str = "student_arun"
+    subjectId: Optional[str] = "General"
     conceptId: Optional[str] = "All"
     difficulty: Optional[str] = "Medium"
-    questionCount: int = 5
-    assessmentType: str = "Practice Quiz"
+    questionCount: Optional[int] = 5
+    assessmentType: Optional[str] = "Practice Quiz"
     department: Optional[str] = "Computer Science"
     assignmentId: Optional[str] = None
 

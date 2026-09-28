@@ -49,6 +49,25 @@ def staff_create_assignment(req: StaffAssignmentCreateRequest):
                 db["questions"].insert_one(q_doc)
                 created_qids.append(qid)
 
+    # If no question IDs were provided, auto-link questions from question bank for this subject/department
+    all_db_questions = list(db["questions"].find({}))
+    if not created_qids:
+        req_sub = str(req.subjectId or "").lower().strip()
+        matched = [q for q in all_db_questions if str(q.get("subjectId", "")).lower().strip() == req_sub]
+        if not matched:
+            req_d = str(req.department or "").lower().strip()
+            matched = [q for q in all_db_questions if req_d in str(q.get("department", "")).lower()]
+        if not matched:
+            matched = all_db_questions[:5]
+        for m in matched[:5]:
+            created_qids.append(str(m.get("_id", m.get("id"))))
+
+    # Resolve full question objects to embed directly in the assignment document
+    qid_set = set(str(x) for x in created_qids)
+    embedded_questions = [q for q in all_db_questions if str(q.get("_id", q.get("id"))) in qid_set]
+    if not embedded_questions:
+        embedded_questions = all_db_questions[:5]
+
     # Persist the assignment doc in 'department_assignments' collection
     assignment_doc = {
         "_id": asm_id,
@@ -60,8 +79,11 @@ def staff_create_assignment(req: StaffAssignmentCreateRequest):
         "conceptId": req.conceptId or "All",
         "durationMinutes": req.durationMinutes or 30,
         "questionIds": created_qids,
+        "questions": embedded_questions,
         "assignedBy": req.assignedBy or "Department Faculty",
         "dueDate": req.dueDate or "Next Week",
+        "college": getattr(req, "college", "PSR Engineering College") or "PSR Engineering College",
+        "institution": getattr(req, "institution", "PSR Engineering College") or "PSR Engineering College",
         "submissionsCount": 0,
         "averageScore": 0,
         "status": "published",
@@ -94,12 +116,15 @@ def staff_create_assignment(req: StaffAssignmentCreateRequest):
 def get_department_assignments(department: Optional[str] = None):
     db = get_db()
     all_assignments = list(db["department_assignments"].find({}).sort("createdAt", -1))
-    if department and department.lower() != "all":
+    
+    # If a specific department is passed (and not "all"), filter while always including campus-wide/all tests
+    if department and department.lower() != "all" and "all departments" not in department.lower():
         req_d = department.lower().strip()
         filtered = []
         for a in all_assignments:
             dept = str(a.get("department", "")).lower().strip()
-            if not dept or dept == "all" or req_d in dept or dept in req_d:
+            # Include if matching requested department OR if published campus-wide
+            if not dept or dept == "all" or "all" in dept or "campus" in dept or req_d in dept or dept in req_d:
                 filtered.append(a)
         all_assignments = filtered
 
@@ -110,7 +135,7 @@ def get_department_assignments(department: Optional[str] = None):
 def shuffle_options_remap(question: dict) -> dict:
     original_options = list(question.get("options", []))
     correct_idx = question.get("correctAnswer", 0)
-    correct_text = original_options[correct_idx] if 0 <= correct_idx < len(original_options) else original_options[0]
+    correct_text = original_options[correct_idx] if 0 <= correct_idx < len(original_options) else (original_options[0] if original_options else "Correct")
 
     shuffled = list(original_options)
     random.shuffle(shuffled)
@@ -123,9 +148,9 @@ def shuffle_options_remap(question: dict) -> dict:
         "correctAnswer": new_correct_idx,
         "explanation": question.get("explanation"),
         "department": question.get("department", "Computer Science"),
-        "subjectId": question.get("subjectId", question.get("subject")),
-        "conceptId": question.get("conceptId", question.get("concept")),
-        "difficulty": question.get("difficulty")
+        "subjectId": question.get("subjectId", question.get("subject", "General")),
+        "conceptId": question.get("conceptId", question.get("concept", "General")),
+        "difficulty": question.get("difficulty", "medium")
     }
 
 @router.post("/generate")
@@ -135,10 +160,28 @@ def generate_assessment(req: AssessmentGenerateRequest):
 
     # If assignmentId specified, load the exact staff-created questions for this assignment
     if req.assignmentId:
-        assign_doc = db["department_assignments"].find_one({"_id": req.assignmentId})
-        if assign_doc and assign_doc.get("questionIds"):
-            qids = assign_doc["questionIds"]
-            candidate_pool = list(db["questions"].find({"$or": [{"_id": {"$in": qids}}, {"id": {"$in": qids}}]}))
+        assign_doc = db["department_assignments"].find_one({"$or": [{"_id": req.assignmentId}, {"id": req.assignmentId}]})
+        if assign_doc:
+            candidate_pool = []
+            
+            # 1. Use embedded questions if present
+            if assign_doc.get("questions") and len(assign_doc["questions"]) > 0:
+                candidate_pool = list(assign_doc["questions"])
+            
+            # 2. Or query from questions collection by questionIds
+            if not candidate_pool and assign_doc.get("questionIds"):
+                qids = [str(x) for x in assign_doc["questionIds"]]
+                all_q = list(db["questions"].find({}))
+                candidate_pool = [q for q in all_q if str(q.get("_id", q.get("id"))) in qids]
+            
+            # 3. Fallback: match by subject/department so student is NEVER shown 0 questions
+            if not candidate_pool:
+                all_q = list(db["questions"].find({}))
+                target_sub = str(assign_doc.get("subjectId", "")).lower().strip()
+                candidate_pool = [q for q in all_q if str(q.get("subjectId", "")).lower().strip() == target_sub]
+                if not candidate_pool:
+                    candidate_pool = all_q[:5]
+
             if candidate_pool:
                 processed_questions = [shuffle_options_remap(q) for q in candidate_pool]
                 assessment_id = f"asm_{int(time.time()*1000)}"

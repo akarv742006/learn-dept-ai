@@ -12,6 +12,7 @@ import { assessmentApi, type Question, type DepartmentAssignment, type StaffQues
 import { useAuth } from '../context/AuthContext';
 
 const DEPARTMENTS = [
+  'All Departments / Campus Wide',
   'Computer Science',
   'Information Technology',
   'Electronics & Communication',
@@ -37,10 +38,12 @@ export const TeacherConcepts: React.FC = () => {
 export const TeacherAssessments: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'create-question' | 'create-assignment' | 'question-bank' | 'assignments-list' | 'student-marks'>('create-question');
-  const [selectedDept, setSelectedDept] = useState<string>('Computer Science');
+  const [selectedDept, setSelectedDept] = useState<string>(user?.department || 'Computer Science');
   
   // Questions and Assignments State
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [allCollegeQuestions, setAllCollegeQuestions] = useState<Question[]>([]);
+  const [questionSource, setQuestionSource] = useState<'dept' | 'all'>('all');
   const [assignments, setAssignments] = useState<DepartmentAssignment[]>([]);
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
   const [selectedSubmissionModal, setSelectedSubmissionModal] = useState<StudentSubmission | null>(null);
@@ -58,12 +61,13 @@ export const TeacherAssessments: React.FC = () => {
   const [cohortWeaknesses, setCohortWeaknesses] = useState<CohortWeakness[]>([]);
   const [loadingCohortWeaknesses, setLoadingCohortWeaknesses] = useState<boolean>(false);
   const [isGeneratingWeakness, setIsGeneratingWeakness] = useState<boolean>(false);
+  const [isQuickGen, setIsQuickGen] = useState<boolean>(false);
   const [generatedWeaknessQuestions, setGeneratedWeaknessQuestions] = useState<any[]>([]);
   const [weaknessQCount, setWeaknessQCount] = useState<number>(3);
   const [isSavingBatch, setIsSavingBatch] = useState<boolean>(false);
 
   // New Question Form State (Manual)
-  const [qDepartment, setQDepartment] = useState('Computer Science');
+  const [qDepartment, setQDepartment] = useState(user?.department || 'Computer Science');
   const [qSubject, setQSubject] = useState('DBMS');
   const [qConcept, setQConcept] = useState('c_fd');
   const [qDifficulty, setQDifficulty] = useState('medium');
@@ -75,7 +79,7 @@ export const TeacherAssessments: React.FC = () => {
 
   // New Assignment Form State
   const [assignTitle, setAssignTitle] = useState('');
-  const [assignDept, setAssignDept] = useState('Computer Science');
+  const [assignDept, setAssignDept] = useState(user?.department || 'Computer Science');
   const [assignYear, setAssignYear] = useState('Year 3');
   const [assignSubject, setAssignSubject] = useState('DBMS');
   const [assignDuration, setAssignDuration] = useState(25);
@@ -85,7 +89,8 @@ export const TeacherAssessments: React.FC = () => {
   const loadCohortWeaknesses = async (dept: string) => {
     setLoadingCohortWeaknesses(true);
     try {
-      const res = await assessmentApi.getCohortWeaknesses(dept);
+      const qd = dept.includes('All') ? 'Computer Science' : dept;
+      const res = await assessmentApi.getCohortWeaknesses(qd);
       setCohortWeaknesses(res.weaknesses || []);
       if (res.weaknesses && res.weaknesses.length > 0 && !weaknessText) {
         setWeaknessText(res.weaknesses[0].weaknessText);
@@ -102,14 +107,17 @@ export const TeacherAssessments: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedQuestions, fetchedAssignments, fetchedSubmissions] = await Promise.all([
-        assessmentApi.getQuestions({ department: selectedDept !== 'All' ? selectedDept : undefined }),
-        assessmentApi.getDepartmentAssignments(selectedDept),
-        assessmentApi.getSubmissions({ department: selectedDept !== 'All' ? selectedDept : undefined })
+      const isAll = selectedDept === 'All' || selectedDept.includes('All');
+      const [fetchedQuestions, fetchedAssignments, fetchedSubmissions, allPool] = await Promise.all([
+        assessmentApi.getQuestions({ department: !isAll ? selectedDept : undefined }),
+        assessmentApi.getDepartmentAssignments(!isAll ? selectedDept : undefined),
+        assessmentApi.getSubmissions({ department: !isAll ? selectedDept : undefined }),
+        assessmentApi.getQuestions({})
       ]);
       setQuestions(fetchedQuestions);
       setAssignments(fetchedAssignments);
       setSubmissions(fetchedSubmissions || []);
+      setAllCollegeQuestions(allPool || []);
     } catch (e: any) {
       console.error("Failed to load department assessment data", e);
     } finally {
@@ -227,6 +235,39 @@ export const TeacherAssessments: React.FC = () => {
     }
   };
 
+  // Quick 1-Click AI Auto-Generator for Assignment
+  const handleQuickAutoGenerateForTest = async () => {
+    setIsQuickGen(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const targetD = assignDept.includes('All') ? 'Computer Science' : assignDept;
+      const targetSub = assignSubject.trim() || 'DBMS';
+      const res = await assessmentApi.generateFromWeakness({
+        department: targetD,
+        subjectId: targetSub,
+        conceptId: 'General',
+        weaknessText: `Curriculum evaluation test covering core concepts in ${targetSub} (${targetD})`,
+        difficulty: 'medium',
+        bloomLevel: 'Apply',
+        count: 5,
+        saveDirectly: true,
+        createdBy: user?.name || 'Department Faculty'
+      });
+
+      if (res.questions && res.questions.length > 0) {
+        setSuccessMessage(`Auto-generated and added ${res.questions.length} questions directly to your test!`);
+        await loadData();
+        const newIds = res.questions.map((q: any) => q.id || q._id || '');
+        setSelectedQIds(prev => Array.from(new Set([...prev, ...newIds])));
+      }
+    } catch (e: any) {
+      setErrorMessage(e.message || "Could not auto-generate questions for test.");
+    } finally {
+      setIsQuickGen(false);
+    }
+  };
+
   // Handle Assignment Creation
   const handlePublishAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,9 +278,14 @@ export const TeacherAssessments: React.FC = () => {
       setErrorMessage('Please enter an assignment title.');
       return;
     }
-    if (selectedQIds.length === 0) {
-      setErrorMessage('Please select at least 1 question from the department pool.');
-      return;
+
+    let finalQIds = [...selectedQIds];
+    if (finalQIds.length === 0) {
+      const pool = questionSource === 'dept' && questions.length > 0 ? questions : allCollegeQuestions;
+      if (pool.length > 0) {
+        finalQIds = pool.slice(0, 5).map(q => q.id || q._id || '');
+        setSelectedQIds(finalQIds);
+      }
     }
 
     try {
@@ -248,13 +294,13 @@ export const TeacherAssessments: React.FC = () => {
         description: assignDescription.trim(),
         department: assignDept,
         targetYear: assignYear,
-        subjectId: assignSubject.trim(),
+        subjectId: assignSubject.trim() || 'General',
         durationMinutes: Number(assignDuration),
-        questionIds: selectedQIds,
+        questionIds: finalQIds,
         assignedBy: user?.name || 'Department Faculty Head'
       });
 
-      setSuccessMessage(`Published assignment "${assignTitle}" for ${assignDept} (${assignYear}) students!`);
+      setSuccessMessage(`Published assignment "${assignTitle}" with ${finalQIds.length > 0 ? finalQIds.length : 'curriculum'} questions for ${assignDept} students!`);
       setAssignTitle('');
       setAssignDescription('');
       setSelectedQIds([]);
@@ -1054,23 +1100,59 @@ export const TeacherAssessments: React.FC = () => {
 
             {/* Questions Selection from Bank */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    Select Questions from {assignDept} Bank ({questions.length} available)
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Check the boxes for questions you want to bundle into this assignment for students.
-                  </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Question Source:</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuestionSource('dept')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      questionSource === 'dept'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {assignDept} ({questions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuestionSource('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      questionSource === 'all'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    All College Questions ({allCollegeQuestions.length})
+                  </button>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={handleQuickAutoGenerateForTest}
+                    disabled={isQuickGen}
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isQuickGen ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating 5 Questions...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" /> ⚡ 1-Click Auto-Generate 5 Questions
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
-                      const allIds = questions.map(q => q.id || q._id || '');
+                      const pool = questionSource === 'dept' ? questions : allCollegeQuestions;
+                      const allIds = pool.map(q => q.id || q._id || '');
                       setSelectedQIds(allIds);
                     }}
-                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline px-2"
                   >
                     Select All
                   </button>
@@ -1078,20 +1160,30 @@ export const TeacherAssessments: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedQIds([])}
-                    className="text-[11px] font-bold text-slate-500 hover:underline"
+                    className="text-[11px] font-bold text-slate-500 hover:underline px-2"
                   >
-                    Deselect All
+                    Clear
                   </button>
                 </div>
               </div>
 
               <div className="max-h-96 overflow-y-auto space-y-2.5 p-1 border border-slate-100 dark:border-slate-800 rounded-2xl">
-                {questions.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400">
-                    No questions found for {assignDept}. Create questions in Tab 1 first!
+                {(questionSource === 'dept' ? questions : allCollegeQuestions).length === 0 ? (
+                  <div className="text-center py-8 px-4 space-y-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                    <p className="text-xs text-slate-500">
+                      No questions found for {assignDept} yet. You can auto-generate questions instantly or pick from All College Questions!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleQuickAutoGenerateForTest}
+                      disabled={isQuickGen}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" /> ⚡ Auto-Generate 5 Questions Now
+                    </button>
                   </div>
                 ) : (
-                  questions.map((q) => {
+                  (questionSource === 'dept' ? questions : allCollegeQuestions).map((q) => {
                     const qId = q.id || q._id || '';
                     const isSelected = selectedQIds.includes(qId);
                     return (

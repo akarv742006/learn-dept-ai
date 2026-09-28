@@ -11,6 +11,7 @@ import { assessmentApi, type Question, type DepartmentAssignment, type StudentSu
 import { aiApi } from '../api/aiApi';
 
 const DEPARTMENTS = [
+  'All Departments / Campus Wide',
   'Computer Science',
   'Information Technology',
   'Electronics & Communication',
@@ -20,6 +21,7 @@ const DEPARTMENTS = [
 ];
 
 const SUBJECTS_BY_DEPARTMENT: Record<string, string[]> = {
+  'All Departments / Campus Wide': ['DBMS', 'Data Structures', 'Algorithms', 'Cloud Computing', 'Digital Electronics', 'Thermodynamics'],
   'Computer Science': ['DBMS', 'Data Structures', 'Algorithms', 'Operating Systems', 'Computer Networks'],
   'Information Technology': ['Cloud Computing', 'Web Security', 'Database Engineering', 'Data Mining'],
   'Electronics & Communication': ['Digital Electronics', 'VLSI Design', 'Signals & Systems', 'Microcontrollers'],
@@ -44,7 +46,7 @@ export const StudentQuizPage: React.FC = () => {
   const studentId = user?.id || 'student_arun';
 
   // Department State
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('Computer Science');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(user?.department || 'All Departments / Campus Wide');
   const [deptAssignments, setDeptAssignments] = useState<DepartmentAssignment[]>([]);
   const [pastSubmissions, setPastSubmissions] = useState<StudentSubmission[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState<boolean>(false);
@@ -99,7 +101,8 @@ export const StudentQuizPage: React.FC = () => {
     const fetchDeptAssignments = async () => {
       setLoadingAssignments(true);
       try {
-        const list = await assessmentApi.getDepartmentAssignments(selectedDepartment);
+        const queryDept = selectedDepartment.includes('All') ? 'All' : selectedDepartment;
+        const list = await assessmentApi.getDepartmentAssignments(queryDept);
         setDeptAssignments(list);
       } catch (err) {
         console.warn("Could not fetch department assignments", err);
@@ -183,10 +186,15 @@ export const StudentQuizPage: React.FC = () => {
     try {
       const res = await assessmentApi.generate({
         studentId,
-        subjectId: assign.subjectId,
-        department: assign.department,
+        subjectId: assign.subjectId || 'General',
+        department: assign.department || selectedDepartment,
         assignmentId: assign._id
       });
+
+      if (!res.questions || res.questions.length === 0) {
+        alert("This assignment questions are being prepared. Please try again in a moment.");
+        return;
+      }
 
       setAssessmentId(res.assessmentId);
       setActiveQuestions(res.questions);
