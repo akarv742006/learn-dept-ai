@@ -42,7 +42,7 @@ export const LoginPage: React.FC = () => {
         <div className="md:col-span-2 bg-gradient-to-br from-[#12192b] via-[#1a233b] to-indigo-950 p-8 text-white flex flex-col justify-between">
           <div>
             <div className="mb-8">
-              <Logo size="lg" />
+              <Logo size="lg" variant="light" />
             </div>
 
             <h2 className="text-2xl font-black mb-3 text-white">

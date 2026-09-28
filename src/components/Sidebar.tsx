@@ -97,9 +97,9 @@ export const Sidebar: React.FC = () => {
         {/* Brand Header */}
         <div
           onClick={() => navigate('/')}
-          className="p-5 border-b border-slate-800/60 cursor-pointer hover:bg-slate-900/40 transition"
+          className="p-5 border-b border-slate-800/80 cursor-pointer hover:bg-slate-900/60 transition bg-slate-950/40"
         >
-          <Logo size="md" />
+          <Logo size="md" variant="light" />
         </div>
 
         {/* Active Role Indicator */}

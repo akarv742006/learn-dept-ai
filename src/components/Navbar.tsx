@@ -55,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-xl tracking-tight gradient-text">
-                  MindDebt AI
+                  LearnDebt AI
                 </span>
                 <span className="hidden sm:inline-block px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
                   MISSION-07
