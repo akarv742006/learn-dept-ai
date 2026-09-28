@@ -7,9 +7,14 @@ class UserRegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: str = Field(..., description="student, teacher, parent, or admin")
+    college: Optional[str] = "Anna University"
     department: Optional[str] = "Computer Science"
     year: Optional[str] = "3rd Year"
+    phone: Optional[str] = None
     linkedStudentId: Optional[str] = None
+    parentName: Optional[str] = None
+    parentPhone: Optional[str] = None
+    parentPin: Optional[str] = "1234"
 
 class UserLoginRequest(BaseModel):
     email: EmailStr
@@ -20,11 +25,17 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
+    college: Optional[str] = "Anna University"
     department: Optional[str] = None
     year: Optional[str] = None
     avatar: Optional[str] = None
     linkedStudentId: Optional[str] = None
+    parentName: Optional[str] = None
+    parentPhone: Optional[str] = None
+    parentId: Optional[str] = None
     token: Optional[str] = None
+    is_premium: Optional[bool] = False
+    plan: Optional[str] = "FREE"
 
 # Assessment Schemas
 class AssessmentGenerateRequest(BaseModel):

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Flame, ArrowRight, Sparkles, RefreshCw, Lock, Unlock, Bot, BrainCircuit, Target, CheckCircle2, ShieldCheck, X, Receipt } from 'lucide-react';
+import { Flame, ArrowRight, Sparkles, RefreshCw, Lock, Unlock, Bot, BrainCircuit, Target, CheckCircle2, ShieldCheck, X, Receipt, Building2, PhoneCall, MessageCircle, HeartHandshake } from 'lucide-react';
 import { LearningDebtWaterfallCard } from '../components/LearningDebtWaterfallCard';
 import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { studentApi, type StudentDashboardResponse } from '../api/studentApi';
 import { saasApi, type UserSubscriptionState, type PaymentRecord } from '../api/saasApi';
+import { authApi, type CollegeStaffMember } from '../api/authApi';
 import { UPIPaymentModal } from '../components/UPIPaymentModal';
 import { SUBSCRIPTION_PLANS, type SubscriptionPlan } from '../data/subscriptionPlans';
 
@@ -16,6 +17,7 @@ export const StudentDashboard: React.FC = () => {
   const [data, setData] = useState<StudentDashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [subState, setSubState] = useState<UserSubscriptionState | null>(null);
+  const [collegeStaff, setCollegeStaff] = useState<CollegeStaffMember[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [gatedModalOpen, setGatedModalOpen] = useState<boolean>(false);
   const [gatedFeatureName, setGatedFeatureName] = useState<string>('');
@@ -27,12 +29,16 @@ export const StudentDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [res, subRes] = await Promise.all([
+      const [res, subRes, staffRes] = await Promise.all([
         studentApi.getDashboard(user?.id || 'student_arun'),
-        saasApi.getMySubscription(user?.id || 'student_arun')
+        saasApi.getMySubscription(user?.id || 'student_arun'),
+        authApi.getCollegeStaff(user?.college || 'Anna University').catch(() => ({ success: true, staff: [] }))
       ]);
       setData(res);
       setSubState(subRes);
+      if (staffRes?.staff) {
+        setCollegeStaff(staffRes.staff);
+      }
     } catch (e) {
       console.warn("Using baseline fallback profile:", e);
     } finally {
@@ -42,7 +48,7 @@ export const StudentDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [user?.id]);
+  }, [user?.id, user?.college]);
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'Arun';
   const learningDebt = data?.learningDebt ?? 42;
@@ -415,6 +421,44 @@ export const StudentDashboard: React.FC = () => {
             </button>
           </div>
 
+          {/* Linked Parent Portal Card */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-600 font-extrabold text-xs">
+                <HeartHandshake className="w-4 h-4" />
+                <span>Linked Parent Portal</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                தமிழ் / English
+              </span>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Parent Name:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{user?.parentName || 'Ramesh Krishnan'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Contact:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">{user?.parentPhone || '+91 63797 62186'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Login PIN:</span>
+                <span className="font-mono font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">1234</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Parents can monitor learning debt scores and concept recovery progress in either <strong>தமிழ் (Tamil)</strong> or <strong>English</strong>.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/parent/dashboard')}
+              className="w-full py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>Preview Parent Dashboard (பெற்றோர்)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Notifications */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Recent Evaluation Notifications</h3>
@@ -430,6 +474,103 @@ export const StudentDashboard: React.FC = () => {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 4. College Faculty & Mentors Section (Same College) */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Your College Faculty & Staff Mentors
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                {user?.college || 'Anna University'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Staff members registered under your college available for academic guidance and concept clarification.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Faculty Support Active</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(collegeStaff.length > 0 ? collegeStaff : [
+            {
+              id: 'teacher_rajesh',
+              name: 'Dr. Rajesh Sharma',
+              designation: 'Associate Professor & HOD',
+              department: 'Computer Science',
+              phone: '+91 63797 62186',
+              whatsapp: '6379762186',
+              officeHours: 'Mon-Fri 09:00 AM - 05:00 PM',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh',
+              courses: ['DBMS', 'Distributed Systems']
+            },
+            {
+              id: 'teacher_priya_sharma',
+              name: 'Ms. Priya Sharma',
+              designation: 'Assistant Professor & Concept Advisor',
+              department: 'Computer Science',
+              phone: '+91 63797 62186',
+              whatsapp: '6379762186',
+              officeHours: 'Mon-Thu 10:00 AM - 04:00 PM',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=PriyaSharma',
+              courses: ['Relational Schema Design', 'Normalization']
+            },
+            {
+              id: 'teacher_suresh',
+              name: 'Prof. Suresh Nair',
+              designation: 'Senior Professor & Academic Dean',
+              department: 'Information Technology',
+              phone: '+91 63797 62186',
+              whatsapp: '6379762186',
+              officeHours: 'Tue-Fri 11:00 AM - 05:00 PM',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SureshNair',
+              courses: ['Algorithms', 'Cloud Systems']
+            }
+          ]).map((staff: any) => (
+            <div key={staff.id} className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col justify-between space-y-3">
+              <div className="flex items-start gap-3">
+                <img src={staff.avatar} alt={staff.name} className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">{staff.name}</h4>
+                  <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400">{staff.designation}</p>
+                  <p className="text-[10px] text-slate-500">{staff.department}</p>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 space-y-1 border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
+                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Office Hours:</span> {staff.officeHours}</div>
+                <div><span className="font-semibold text-slate-700 dark:text-slate-300">Courses:</span> {staff.courses?.join(', ')}</div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <a
+                  href={`https://wa.me/916379762186?text=${encodeURIComponent(`Hello ${staff.name}, I am ${user?.name || 'a student'} from ${user?.college || 'Anna University'}. I have a doubt regarding my Learning Debt assessment.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp (6379762186)</span>
+                </a>
+                <a
+                  href="tel:+916379762186"
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                  title="Call Faculty (+91 63797 62186)"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

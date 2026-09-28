@@ -5,11 +5,17 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'parent' | 'admin';
+  college?: string;
   department?: string;
   year?: string;
   avatar?: string;
   linkedStudentId?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentId?: string;
   token?: string;
+  is_premium?: boolean;
+  plan?: string;
 }
 
 export interface LoginPayload {
@@ -22,9 +28,28 @@ export interface RegisterPayload {
   email: string;
   password: string;
   role: 'student' | 'teacher' | 'parent' | 'admin';
+  college?: string;
   department?: string;
   year?: string;
+  phone?: string;
   linkedStudentId?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentPin?: string;
+}
+
+export interface CollegeStaffMember {
+  id: string;
+  name: string;
+  email: string;
+  college: string;
+  department: string;
+  designation: string;
+  phone: string;
+  whatsapp: string;
+  officeHours: string;
+  avatar: string;
+  courses: string[];
 }
 
 export const authApi = {
@@ -54,6 +79,18 @@ export const authApi = {
 
   getCurrentUser: async (): Promise<User> => {
     return apiRequest<User>('/auth/me', {
+      method: 'GET',
+    });
+  },
+
+  getCollegeStaff: async (college: string = 'Anna University'): Promise<{ success: boolean; staff: CollegeStaffMember[] }> => {
+    return apiRequest<{ success: boolean; staff: CollegeStaffMember[] }>(`/auth/college-staff?college=${encodeURIComponent(college)}`, {
+      method: 'GET',
+    });
+  },
+
+  getCollegeStudents: async (college: string = 'Anna University'): Promise<{ success: boolean; students: any[] }> => {
+    return apiRequest<{ success: boolean; students: any[] }>(`/auth/college-students?college=${encodeURIComponent(college)}`, {
       method: 'GET',
     });
   },

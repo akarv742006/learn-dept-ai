@@ -92,12 +92,12 @@ const SAMPLE_PARENTS: ParentPersona[] = [
     name: 'Ramesh Krishnan',
     relationship: 'தந்தை / Father',
     email: 'ramesh.krishnan@parent.org',
-    phone: '+91 98450 12345',
+    phone: '+91 63797 62186',
     pin: '1234',
     childName: 'Arun Kumar',
     childRollNo: 'CS2023-042',
-    childDept: 'B.Tech CSE - 3rd Year',
-    childDebt: 68,
+    childDept: 'Anna University - CSE 3rd Year',
+    childDebt: 42,
     avatarBg: 'from-emerald-600 to-teal-600',
   },
   {
@@ -105,11 +105,11 @@ const SAMPLE_PARENTS: ParentPersona[] = [
     name: 'Meenakshi Sundaram',
     relationship: 'தாய் / Mother',
     email: 'meenakshi.s@parent.org',
-    phone: '+91 97123 45678',
+    phone: '+91 63797 62186',
     pin: '1234',
     childName: 'Priya Patel',
     childRollNo: 'AI2023-018',
-    childDept: 'B.Tech AI&DS - 2nd Year',
+    childDept: 'Anna University - AI&DS 2nd Year',
     childDebt: 34,
     avatarBg: 'from-amber-600 to-rose-600',
   },
@@ -118,11 +118,11 @@ const SAMPLE_PARENTS: ParentPersona[] = [
     name: 'Karthik Raja',
     relationship: 'தந்தை / Father',
     email: 'karthik.raja@parent.org',
-    phone: '+91 98234 56789',
+    phone: '+91 63797 62186',
     pin: '1234',
     childName: 'Rahul Verma',
     childRollNo: 'IT2023-055',
-    childDept: 'B.Tech IT - 4th Year',
+    childDept: 'Anna University - IT 4th Year',
     childDebt: 14,
     avatarBg: 'from-blue-600 to-indigo-600',
   },
@@ -136,7 +136,7 @@ export const LoginPage: React.FC = () => {
   const [studentLoginTab, setStudentLoginTab] = useState<'email' | 'roll' | 'otp' | 'qr'>('email');
   const [parentLoginTab, setParentLoginTab] = useState<'child_roll' | 'pin'>('child_roll');
   const [parentLang, setParentLang] = useState<'ta' | 'en'>('ta');
-  const [parentPhone, setParentPhone] = useState('+91 98450 12345');
+  const [parentPhone, setParentPhone] = useState('+91 63797 62186');
   const [parentPin, setParentPin] = useState('1234');
   const [parentChildRoll, setParentChildRoll] = useState('CS2023-042');
   const [department, setDepartment] = useState('Computer Science');

@@ -365,6 +365,11 @@ def confirm_demo_payment(
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
+    # Fetch user & college info to connect payment to user's institution
+    user_rec = db["users"].find_one({"$or": [{"_id": user_id}, {"id": user_id}]}) or {}
+    college_val = user_rec.get("college") or "Anna University"
+    sub_doc["college"] = college_val
+
     db["subscriptions"].insert_one(sub_doc)
     
     # Update user in users collection
@@ -373,24 +378,38 @@ def confirm_demo_payment(
         {"$set": {
             "plan": plan_id,
             "is_premium": True,
+            "college": college_val,
             "subscriptionId": sub_id,
             "subscription_id": sub_id,
             "updatedAt": now.isoformat()
         }}
     )
+
+    # Update student in students collection
+    db["students"].update_one(
+        {"$or": [{"userId": user_id}, {"_id": user_id}]},
+        {"$set": {
+            "paymentStatus": "ACTIVE",
+            "plan": plan_id,
+            "lastPaymentId": pay_id,
+            "college": college_val,
+            "updatedAt": now.isoformat()
+        }}
+    )
     
-    # Synchronize with Firebase Realtime Database
+    # Synchronize unified subscription and payment with Firebase Realtime Database
     fb_sync = sync_subscription_to_firebase(user_id, sub_doc)
     fb_pay_sync = sync_payment_to_firebase({
         "payment_id": pay_id,
         "user_id": user_id,
+        "college": college_val,
         "plan_id": plan_id,
         "amount": payment.get("amount", 2),
         "currency": payment.get("currency", "INR"),
         "status": "SUCCESS",
         "payment_method": "DEMO_UPI",
         "upi_id": "akashkrishnamoorthi89@oksbi",
-        "utr_number": utr_val
+        "utr_number": utr_val or "UPI-DEMO-AUTH-2026"
     })
     
     # Audit notification

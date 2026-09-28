@@ -47,16 +47,16 @@ export const TeacherDashboard: React.FC = () => {
         <div>
           <div className="flex flex-wrap items-center gap-2 text-cyan-300 font-extrabold text-xs uppercase tracking-wider mb-1">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>Educator Portal • Department of {user?.department || 'Computer Science'}</span>
+            <span>Faculty Portal • Department of {user?.department || 'Computer Science'}</span>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/40">
-              PSR Engineering College • 14/20 Faculty Seats Active
+              {user?.college || 'Anna University'} • Faculty Active
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
             Good Morning, {user?.name || 'Dr. Rajesh Sharma'} 👋
           </h1>
           <p className="text-xs md:text-sm text-slate-300 max-w-2xl leading-relaxed mt-1">
-            Class overview: <span className="font-bold text-white">{overview.totalStudents} total students</span> tracked via MongoDB Atlas. Average Learning Debt is <span className="font-bold text-amber-300">{overview.avgLearningDebt} pts</span>.
+            College: <span className="font-bold text-white">{user?.college || 'Anna University'}</span> • Mentor WhatsApp: <span className="font-bold text-emerald-300">+91 63797 62186</span>. Class overview: <span className="font-bold text-white">{overview.totalStudents} total students</span> tracked with live parent synchronization.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export const TeacherDashboard: React.FC = () => {
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-500" />
-            <span>Class Roster & Synchronized Learning Debt Scores</span>
+            <span>{user?.college || 'Anna University'} Student Roster & Parent Links</span>
           </h2>
           <button
             onClick={fetchDashboard}
@@ -119,6 +119,7 @@ export const TeacherDashboard: React.FC = () => {
                 <th className="py-3 px-4">Student Name</th>
                 <th className="py-3 px-4">Roll Number</th>
                 <th className="py-3 px-4">Department & Year</th>
+                <th className="py-3 px-4">Linked Parent</th>
                 <th className="py-3 px-4">Overall Score</th>
                 <th className="py-3 px-4">Learning Debt</th>
                 <th className="py-3 px-4">Risk Profile</th>
@@ -131,6 +132,10 @@ export const TeacherDashboard: React.FC = () => {
                   <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{s.name}</td>
                   <td className="py-3.5 px-4 font-mono text-slate-500">{s.rollNumber}</td>
                   <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{s.department} ({s.year})</td>
+                  <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">{s.linkedParentName || s.parentName || 'Ramesh Krishnan'}</div>
+                    <div className="text-[10px] text-slate-400">{s.linkedParentPhone || s.parentPhone || '+91 63797 62186'}</div>
+                  </td>
                   <td className="py-3.5 px-4 font-bold text-emerald-600">{s.overallPerformance}%</td>
                   <td className="py-3.5 px-4 font-bold text-amber-500">{s.learningDebt} pts</td>
                   <td className="py-3.5 px-4">

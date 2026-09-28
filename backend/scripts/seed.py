@@ -37,10 +37,14 @@ def seed_database():
             "email": "arun@student.edu",
             "passwordHash": hash_password("student123"),
             "role": "student",
+            "college": "Anna University",
             "department": "Computer Science",
             "year": "3rd Year",
             "rollNumber": "CS2023-042",
             "phone": "+91 98450 11223",
+            "parentName": "Ramesh Krishnan",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_ramesh",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Arun",
             "createdAt": now,
             "updatedAt": now,
@@ -52,10 +56,14 @@ def seed_database():
             "email": "priya.patel@student.edu",
             "passwordHash": hash_password("student123"),
             "role": "student",
+            "college": "Anna University",
             "department": "AI & Data Science",
             "year": "2nd Year",
             "rollNumber": "AI2023-018",
             "phone": "+91 98450 44556",
+            "parentName": "Meenakshi Sundaram",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_meenakshi",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PriyaP",
             "createdAt": now,
             "updatedAt": now,
@@ -67,10 +75,14 @@ def seed_database():
             "email": "rahul.verma@student.edu",
             "passwordHash": hash_password("student123"),
             "role": "student",
+            "college": "Anna University",
             "department": "Information Technology",
             "year": "4th Year",
             "rollNumber": "IT2023-055",
             "phone": "+91 98450 77889",
+            "parentName": "Karthik Raja",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_karthik",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=RahulV",
             "createdAt": now,
             "updatedAt": now,
@@ -85,9 +97,11 @@ def seed_database():
             "passwordHash": hash_password("teacher123"),
             "role": "teacher",
             "staffId": "STAFF-CS-01",
+            "college": "Anna University",
             "designation": "Associate Professor & Head of Dept",
             "department": "Computer Science",
             "phone": "+91 63797 62186",
+            "whatsapp": "6379762186",
             "year": "Faculty",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Rajesh",
             "createdAt": now,
@@ -101,9 +115,11 @@ def seed_database():
             "passwordHash": hash_password("teacher123"),
             "role": "teacher",
             "staffId": "STAFF-CS-02",
-            "designation": "Assistant Professor",
+            "college": "Anna University",
+            "designation": "Assistant Professor & Concept Advisor",
             "department": "Computer Science & Engineering",
-            "phone": "+91 99112 55667",
+            "phone": "+91 63797 62186",
+            "whatsapp": "6379762186",
             "year": "Faculty",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PriyaSharma",
             "createdAt": now,
@@ -117,9 +133,11 @@ def seed_database():
             "passwordHash": hash_password("teacher123"),
             "role": "teacher",
             "staffId": "STAFF-IT-01",
+            "college": "Anna University",
             "designation": "Senior Professor & Academic Dean",
             "department": "Information Technology",
-            "phone": "+91 99112 88990",
+            "phone": "+91 63797 62186",
+            "whatsapp": "6379762186",
             "year": "Faculty",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=SureshNair",
             "createdAt": now,
@@ -127,21 +145,60 @@ def seed_database():
             "lastLoginAt": now
         },
 
-        # Parents
+        # Parents (Strictly Tamil & English)
         {
             "_id": "parent_ramesh",
-            "name": "Ramesh Sharma",
-            "email": "ramesh.sharma@parent.org",
-            "phone": "+91 98450 12345",
+            "name": "Ramesh Krishnan",
+            "email": "ramesh.krishnan@parent.org",
+            "phone": "+91 63797 62186",
             "pin": "1234",
-            "passwordHash": hash_password("parent123"),
+            "passwordHash": hash_password("1234"),
             "role": "parent",
+            "college": "Anna University",
             "linkedStudentId": "student_arun",
             "linkedStudentName": "Arun Kumar",
             "childRollNo": "CS2023-042",
-            "preferredLanguage": "hi",
-            "relationship": "Father",
+            "preferredLanguage": "ta",
+            "relationship": "Father (தந்தை)",
             "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Ramesh",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "parent_meenakshi",
+            "name": "Meenakshi Sundaram",
+            "email": "meenakshi@parent.org",
+            "phone": "+91 63797 62186",
+            "pin": "1234",
+            "passwordHash": hash_password("1234"),
+            "role": "parent",
+            "college": "Anna University",
+            "linkedStudentId": "student_priya",
+            "linkedStudentName": "Priya Patel",
+            "childRollNo": "AI2023-018",
+            "preferredLanguage": "ta",
+            "relationship": "Mother (தாய்)",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Meenakshi",
+            "createdAt": now,
+            "updatedAt": now,
+            "lastLoginAt": now
+        },
+        {
+            "_id": "parent_karthik",
+            "name": "Karthik Raja",
+            "email": "karthik.raja@parent.org",
+            "phone": "+91 63797 62186",
+            "pin": "1234",
+            "passwordHash": hash_password("1234"),
+            "role": "parent",
+            "college": "Anna University",
+            "linkedStudentId": "student_rahul",
+            "linkedStudentName": "Rahul Verma",
+            "childRollNo": "IT2023-055",
+            "preferredLanguage": "ta",
+            "relationship": "Father (தந்தை)",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Karthik",
             "createdAt": now,
             "updatedAt": now,
             "lastLoginAt": now
@@ -222,16 +279,26 @@ def seed_database():
         {
             "userId": "student_arun",
             "name": "Arun Kumar",
-            "rollNumber": "CS2023-042",
+            "rollNumber": "AU-2026-0042",
+            "college": "Anna University",
             "department": "Computer Science",
             "year": "3rd Year",
             "phone": "+91 98450 11223",
-            "linkedParentName": "Ramesh Sharma",
-            "linkedParentPhone": "+91 98450 12345",
+            "parentName": "Ramesh Krishnan",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_ramesh",
+            "linkedParentName": "Ramesh Krishnan",
+            "linkedParentPhone": "+91 63797 62186",
+            "paymentStatus": "ACTIVE",
+            "plan": "STUDENT_PRO",
+            "lastPaymentId": "PAY-AU-001",
+            "mentorName": "Dr. Rajesh Sharma",
+            "mentorPhone": "+91 63797 62186",
+            "mentorWhatsApp": "6379762186",
             "subjects": ["DBMS", "Data Structures", "Computer Networks", "Mathematics"],
             "overallPerformance": 78,
-            "learningDebt": 68,
-            "riskLevel": "High",
+            "learningDebt": 42,
+            "riskLevel": "Medium",
             "attendance": 92,
             "createdAt": now,
             "updatedAt": now
@@ -239,12 +306,22 @@ def seed_database():
         {
             "userId": "student_priya",
             "name": "Priya Patel",
-            "rollNumber": "AI2023-018",
+            "rollNumber": "AU-2026-0018",
+            "college": "Anna University",
             "department": "AI & Data Science",
             "year": "2nd Year",
             "phone": "+91 98450 44556",
-            "linkedParentName": "Sunita Patel",
-            "linkedParentPhone": "+91 97123 45678",
+            "parentName": "Meenakshi Sundaram",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_meenakshi",
+            "linkedParentName": "Meenakshi Sundaram",
+            "linkedParentPhone": "+91 63797 62186",
+            "paymentStatus": "ACTIVE",
+            "plan": "STUDENT_PRO",
+            "lastPaymentId": "PAY-AU-002",
+            "mentorName": "Ms. Priya Sharma",
+            "mentorPhone": "+91 63797 62186",
+            "mentorWhatsApp": "6379762186",
             "subjects": ["Python", "Linear Algebra", "Data Structures", "Statistics"],
             "overallPerformance": 84,
             "learningDebt": 34,
@@ -256,12 +333,22 @@ def seed_database():
         {
             "userId": "student_rahul",
             "name": "Rahul Verma",
-            "rollNumber": "IT2023-055",
+            "rollNumber": "AU-2026-0055",
+            "college": "Anna University",
             "department": "Information Technology",
             "year": "4th Year",
             "phone": "+91 98450 77889",
-            "linkedParentName": "Rajesh Verma",
-            "linkedParentPhone": "+91 98234 56789",
+            "parentName": "Karthik Raja",
+            "parentPhone": "+91 63797 62186",
+            "parentId": "parent_karthik",
+            "linkedParentName": "Karthik Raja",
+            "linkedParentPhone": "+91 63797 62186",
+            "paymentStatus": "ACTIVE",
+            "plan": "STUDENT_PRO",
+            "lastPaymentId": "PAY-AU-003",
+            "mentorName": "Prof. Suresh Nair",
+            "mentorPhone": "+91 63797 62186",
+            "mentorWhatsApp": "6379762186",
             "subjects": ["Cloud Computing", "Information Security", "Software Engineering"],
             "overallPerformance": 91,
             "learningDebt": 14,
@@ -272,6 +359,63 @@ def seed_database():
         }
     ]
     db["students"].insert_many(students_data)
+
+    # Payments & Subscriptions (Linked to Anna University and Students)
+    payments_data = [
+        {
+            "_id": "PAY-AU-001",
+            "payment_id": "PAY-AU-001",
+            "user_id": "student_arun",
+            "college": "Anna University",
+            "college_slug": "anna_university",
+            "plan_id": "student_pro",
+            "amount": 2,
+            "currency": "INR",
+            "status": "SUCCESS",
+            "payment_method": "DEMO_UPI",
+            "upi_id": "akashkrishnamoorthi89@oksbi",
+            "utr_number": "UPI-AU-2026-001",
+            "created_at": now.isoformat(),
+            "verified_at": now.isoformat()
+        },
+        {
+            "_id": "PAY-AU-002",
+            "payment_id": "PAY-AU-002",
+            "user_id": "student_priya",
+            "college": "Anna University",
+            "college_slug": "anna_university",
+            "plan_id": "student_pro",
+            "amount": 2,
+            "currency": "INR",
+            "status": "SUCCESS",
+            "payment_method": "DEMO_UPI",
+            "upi_id": "akashkrishnamoorthi89@oksbi",
+            "utr_number": "UPI-AU-2026-002",
+            "created_at": now.isoformat(),
+            "verified_at": now.isoformat()
+        }
+    ]
+    db["payments"].insert_many(payments_data)
+
+    sub_data = [
+        {
+            "_id": "sub_student_arun",
+            "subscription_id": "sub_student_arun",
+            "user_id": "student_arun",
+            "userId": "student_arun",
+            "plan_id": "student_pro",
+            "planId": "student_pro",
+            "college": "Anna University",
+            "status": "active",
+            "payment_id": "PAY-AU-001",
+            "amount": 2,
+            "currency": "INR",
+            "started_at": now.isoformat(),
+            "expires_at": (now + timedelta(days=30)).isoformat(),
+            "created_at": now.isoformat()
+        }
+    ]
+    db["subscriptions"].insert_many(sub_data)
 
     # 3. Comprehensive Question Bank across multiple subjects and concepts
     raw_questions = [
@@ -528,7 +672,14 @@ def seed_database():
         }
     ])
 
-    print("[SEED] Database seeded successfully!")
+    print("[SEED] Database seeded successfully in MongoDB Atlas!")
+
+    try:
+        from app.services.firebase_service import sync_all_directory_to_firebase
+        fb_stats = sync_all_directory_to_firebase(db)
+        print(f"[SEED-FIREBASE] Successfully synchronized to Firebase Realtime Database: {fb_stats}")
+    except Exception as e:
+        print(f"[SEED-FIREBASE] Notice: Remote sync encountered {e}. MongoDB is active.")
 
 if __name__ == "__main__":
     seed_database()
