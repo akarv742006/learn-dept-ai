@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   CheckCircle2,
@@ -146,6 +146,55 @@ export const LoginPage: React.FC = () => {
   const [isScanningQr, setIsScanningQr] = useState(false);
   const [qrScanned, setQrScanned] = useState(false);
 
+  // Load dynamically registered parents from localStorage, prepending them to sample parents
+  const [parentPersonas, setParentPersonas] = useState<ParentPersona[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('learndebt_registered_parents') || '[]');
+      const latest = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+      const customList = latest ? [latest, ...stored.filter((p: any) => p.id !== latest.id)] : stored;
+      if (customList && customList.length > 0) {
+        return [...customList, ...SAMPLE_PARENTS];
+      }
+    } catch {}
+    return SAMPLE_PARENTS;
+  });
+
+  // Also query Firebase Realtime Database for newly registered parent profiles
+  useEffect(() => {
+    const fetchFirebaseParents = async () => {
+      try {
+        const res = await fetch('https://learndept-ai-default-rtdb.firebaseio.com/parents.json');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data === 'object') {
+            const fbParents: ParentPersona[] = Object.entries(data).map(([key, val]: [string, any]) => ({
+              id: key,
+              name: val.name || 'Parent',
+              relationship: 'தந்தை / Father',
+              email: `${(val.name || 'parent').toLowerCase().replace(/[^a-z0-9]/g, '')}@parent.org`,
+              phone: val.phone || '+91 63797 62186',
+              pin: val.pin || '1234',
+              childName: val.studentName || val.childName || 'Student',
+              childRollNo: val.linkedStudentId || val.childRollNo || 'AU-2026-0042',
+              childDept: `${val.college || 'Anna University'} - CSE`,
+              childDebt: 38,
+              avatarBg: 'from-emerald-600 to-teal-600',
+            }));
+
+            setParentPersonas((prev) => {
+              const ids = new Set(fbParents.map((p) => p.id));
+              const nonDuplicatePrev = prev.filter((p) => !ids.has(p.id));
+              return [...fbParents, ...nonDuplicatePrev];
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Firebase parents fetch fallback:', e);
+      }
+    };
+    fetchFirebaseParents();
+  }, []);
+
   const { loginAsRole } = useAuth();
   const navigate = useNavigate();
 
@@ -163,19 +212,90 @@ export const LoginPage: React.FC = () => {
     setParentChildRoll(p.childRollNo);
     setParentPin(p.pin);
     setSelectedRole('parent');
-    loginAsRole('parent', p.name, p.email);
+
+    const activeParent = {
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      role: 'parent' as const,
+      childName: p.childName,
+      studentName: p.childName,
+      childRollNo: p.childRollNo,
+      linkedStudentId: p.childRollNo,
+      childDept: p.childDept,
+      phone: p.phone,
+      college: 'Anna University',
+    };
+    localStorage.setItem('learndebt_active_parent', JSON.stringify(activeParent));
+    loginAsRole('parent', p.name, p.email, activeParent);
     navigate('/parent/dashboard');
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedRole === 'parent') {
-      const parentName = email.includes('sunita')
-        ? 'Sunita Patel'
-        : email.includes('rajesh')
-        ? 'Rajesh Verma'
-        : 'Ramesh Sharma';
-      loginAsRole('parent', parentName, email);
+      const cleanPhone = parentPhone.replace(/[^0-9]/g, '');
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanRoll = parentChildRoll.trim().toLowerCase();
+      const enteredPin = parentPin.trim();
+
+      // Find matching parent persona from registered and sample parents
+      let matched: ParentPersona | undefined;
+
+      if (parentLoginTab === 'pin') {
+        // Matched by entered pass key (PIN) and/or mobile/email
+        matched = parentPersonas.find((p) => {
+          const matchPin = p.pin === enteredPin;
+          const matchEmailOrPhone = cleanEmail && (
+            p.email.toLowerCase().includes(cleanEmail) ||
+            p.phone.replace(/[^0-9]/g, '').includes(cleanEmail.replace(/[^0-9]/g, ''))
+          );
+          return matchPin && (matchEmailOrPhone || !cleanEmail);
+        }) || parentPersonas.find((p) => p.pin === enteredPin);
+      } else {
+        // Matched by student roll number and/or parent mobile
+        matched = parentPersonas.find((p) => {
+          const matchRoll = cleanRoll && p.childRollNo.toLowerCase().includes(cleanRoll);
+          const matchPhone = cleanPhone && p.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
+          return matchRoll || matchPhone;
+        });
+      }
+
+      // If still not matched, check latest stored parent in localStorage
+      if (!matched) {
+        try {
+          const latest = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+          if (latest && (latest.pin === enteredPin || (cleanRoll && latest.childRollNo?.toLowerCase().includes(cleanRoll)))) {
+            matched = latest;
+          }
+        } catch {}
+      }
+
+      // Fallback to first available parent persona
+      if (!matched && parentPersonas.length > 0) {
+        matched = parentPersonas[0];
+      }
+
+      const activeParentName = matched?.name || 'Ramesh Krishnan';
+      const activeChildName = matched?.childName || 'Arun Kumar';
+      const activeChildRoll = matched?.childRollNo || 'CS2023-042';
+
+      const activeParent = {
+        id: matched?.id || `parent_${Date.now()}`,
+        name: activeParentName,
+        email: matched?.email || `${activeParentName.toLowerCase().replace(/[^a-z0-9]/g, '')}@parent.org`,
+        role: 'parent' as const,
+        childName: activeChildName,
+        studentName: activeChildName,
+        childRollNo: activeChildRoll,
+        linkedStudentId: activeChildRoll,
+        childDept: matched?.childDept || 'Anna University - Computer Science',
+        phone: matched?.phone || parentPhone,
+        college: 'Anna University',
+      };
+
+      localStorage.setItem('learndebt_active_parent', JSON.stringify(activeParent));
+      await loginAsRole('parent', activeParent.name, activeParent.email, activeParent);
       navigate('/parent/dashboard');
       return;
     }
@@ -478,11 +598,11 @@ export const LoginPage: React.FC = () => {
                         : 'Quick Select Parent Profile (1-Click Login)'}
                     </span>
                   </label>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">3 Parents</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{parentPersonas.length} Parents</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {SAMPLE_PARENTS.map((prn) => (
+                  {parentPersonas.map((prn) => (
                     <button
                       key={prn.id}
                       type="button"

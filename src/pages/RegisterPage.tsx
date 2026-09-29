@@ -55,6 +55,48 @@ export const RegisterPage: React.FC = () => {
       } catch (fbErr) {
         console.warn('Firebase direct sync warning:', fbErr);
       }
+
+      // Persist to local storage immediately so parent login recognizes the new father/parent account
+      const parentPhoneClean = (formData.parentPhone.trim() || '+91 63797 62186');
+      const parentNameClean = (formData.parentName.trim() || 'Ramesh Krishnan');
+      const parentPinClean = (formData.parentPin.trim() || '1234');
+      const studentNameClean = (formData.name.trim() || 'Arun Kumar');
+      const studentIdClean = formData.studentId.trim() || `AU-${Date.now().toString().slice(-4)}`;
+
+      const newParentRecord = {
+        id: `parent_${parentPhoneClean.replace(/[^0-9]/g, '').slice(-10) || Date.now()}`,
+        name: parentNameClean,
+        relationship: 'தந்தை / Father',
+        email: `${parentNameClean.toLowerCase().replace(/[^a-z0-9]/g, '')}@parent.org`,
+        phone: parentPhoneClean,
+        pin: parentPinClean,
+        childName: studentNameClean,
+        childRollNo: studentIdClean,
+        childDept: `${formData.college} - ${formData.department}`,
+        college: formData.college,
+        department: formData.department,
+        childDebt: 38,
+        avatarBg: 'from-emerald-600 to-teal-600',
+      };
+
+      localStorage.setItem('learndebt_latest_parent', JSON.stringify(newParentRecord));
+      localStorage.setItem('learndebt_latest_student', JSON.stringify({
+        name: studentNameClean,
+        email: formData.email.trim() || `student_${Date.now()}@learndebt.ai`,
+        rollNumber: studentIdClean,
+        college: formData.college,
+        department: formData.department,
+        parentName: parentNameClean,
+        parentPhone: parentPhoneClean,
+        parentPin: parentPinClean,
+      }));
+
+      try {
+        const existingParents = JSON.parse(localStorage.getItem('learndebt_registered_parents') || '[]');
+        const filtered = existingParents.filter((p: any) => p.phone !== parentPhoneClean && p.childRollNo !== studentIdClean);
+        localStorage.setItem('learndebt_registered_parents', JSON.stringify([newParentRecord, ...filtered]));
+      } catch {}
+
       setStep(3);
       return;
     }
@@ -70,6 +112,43 @@ export const RegisterPage: React.FC = () => {
     const userEmail = formData.email.trim() || `${selectedRole}_${Date.now()}@learndebt.ai`;
     const pass = formData.password.trim() || 'password123';
     const studentIdClean = formData.studentId.trim() || `AU-${Date.now().toString().slice(-4)}`;
+    const parentPhoneClean = (formData.parentPhone.trim() || '+91 63797 62186');
+    const parentNameClean = (formData.parentName.trim() || 'Ramesh Krishnan');
+    const parentPinClean = (formData.parentPin.trim() || '1234');
+
+    const finalParentRecord = {
+      id: `parent_${parentPhoneClean.replace(/[^0-9]/g, '').slice(-10) || Date.now()}`,
+      name: parentNameClean,
+      relationship: 'தந்தை / Father',
+      email: `${parentNameClean.toLowerCase().replace(/[^a-z0-9]/g, '')}@parent.org`,
+      phone: parentPhoneClean,
+      pin: parentPinClean,
+      childName: userName,
+      childRollNo: studentIdClean,
+      childDept: `${formData.college} - ${formData.department}`,
+      college: formData.college,
+      department: formData.department,
+      childDebt: 38,
+      avatarBg: 'from-emerald-600 to-teal-600',
+    };
+
+    localStorage.setItem('learndebt_latest_parent', JSON.stringify(finalParentRecord));
+    localStorage.setItem('learndebt_latest_student', JSON.stringify({
+      name: userName,
+      email: userEmail,
+      rollNumber: studentIdClean,
+      college: formData.college,
+      department: formData.department,
+      parentName: parentNameClean,
+      parentPhone: parentPhoneClean,
+      parentPin: parentPinClean,
+    }));
+
+    try {
+      const existingParents = JSON.parse(localStorage.getItem('learndebt_registered_parents') || '[]');
+      const filtered = existingParents.filter((p: any) => p.phone !== parentPhoneClean && p.childRollNo !== studentIdClean);
+      localStorage.setItem('learndebt_registered_parents', JSON.stringify([finalParentRecord, ...filtered]));
+    } catch {}
 
     // 1. Direct Firebase Realtime Database Write
     try {
@@ -81,9 +160,9 @@ export const RegisterPage: React.FC = () => {
         department: formData.department,
         studentId: studentIdClean,
         phone: formData.phone || '+91 98450 11223',
-        parentName: formData.parentName.trim() || 'Ramesh Krishnan',
-        parentPhone: formData.parentPhone.trim() || '+91 63797 62186',
-        parentPin: formData.parentPin.trim() || '1234',
+        parentName: parentNameClean,
+        parentPhone: parentPhoneClean,
+        parentPin: parentPinClean,
       });
       setFirebaseStatus('Verified: Updated in Firebase Realtime Database');
     } catch (fbErr) {
@@ -101,23 +180,30 @@ export const RegisterPage: React.FC = () => {
         department: formData.department,
         year: formData.year,
         phone: formData.phone || '+91 98450 11223',
-        parentName: formData.parentName.trim() || 'Ramesh Krishnan',
-        parentPhone: formData.parentPhone.trim() || '+91 63797 62186',
-        parentPin: formData.parentPin.trim() || '1234'
+        parentName: parentNameClean,
+        parentPhone: parentPhoneClean,
+        parentPin: parentPinClean
       });
 
       if (regRes.parentName) {
         setCreatedParentInfo({
           name: regRes.parentName,
-          phone: regRes.parentPhone || '+91 63797 62186',
-          pin: formData.parentPin || '1234'
+          phone: regRes.parentPhone || parentPhoneClean,
+          pin: parentPinClean
         });
       }
     } catch (err) {
       console.warn('Backend register sync fallback:', err);
     } finally {
       setIsSubmitting(false);
-      await loginAsRole(selectedRole, userName, userEmail);
+      await loginAsRole(selectedRole, userName, userEmail, {
+        college: formData.college,
+        department: formData.department,
+        childName: userName,
+        childRollNo: studentIdClean,
+        parentName: parentNameClean,
+        parentPhone: parentPhoneClean
+      });
       if (selectedRole === 'student') navigate('/student/dashboard');
       else if (selectedRole === 'teacher') navigate('/teacher/dashboard');
       else if (selectedRole === 'parent') navigate('/parent/dashboard');

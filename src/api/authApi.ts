@@ -13,6 +13,10 @@ export interface User {
   parentName?: string;
   parentPhone?: string;
   parentId?: string;
+  studentName?: string;
+  childName?: string;
+  childRollNo?: string;
+  phone?: string;
   token?: string;
   is_premium?: boolean;
   plan?: string;

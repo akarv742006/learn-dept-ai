@@ -5,7 +5,8 @@ import { authApi, type User } from '../api/authApi';
 interface AuthContextType {
   user: User | null;
   currentRole: UserRole;
-  loginAsRole: (role: UserRole, customName?: string, customEmail?: string) => Promise<void>;
+  loginAsRole: (role: UserRole, customName?: string, customEmail?: string, extraFields?: Partial<User>) => Promise<void>;
+  setUser: (user: User | null) => void;
   loginWithCredentials: (email: string, pass: string) => Promise<User>;
   registerUser: (name: string, email: string, pass: string, role: UserRole, department?: string, year?: string) => Promise<User>;
   logout: () => void;
@@ -66,30 +67,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const loginAsRole = async (role: UserRole, customName?: string, customEmail?: string) => {
+  const loginAsRole = async (role: UserRole, customName?: string, customEmail?: string, extraFields?: Partial<User>) => {
     setIsLoading(true);
     try {
       const def = DEFAULT_USERS[role] || DEFAULT_USERS.student;
       const targetEmail = customEmail?.trim() || def.email;
       const pass = def.password;
 
+      let loggedUser: User;
       try {
-        const loggedUser = await authApi.login({ email: targetEmail, password: pass });
-        setUser(loggedUser);
-        setCurrentRole(role);
+        loggedUser = await authApi.login({ email: targetEmail, password: pass });
       } catch (e) {
-        // Register user if demo user not yet created
-        const regUser = await authApi.register({
-          name: customName || (role.charAt(0).toUpperCase() + role.slice(1) + " Demo"),
-          email: targetEmail,
-          password: pass,
-          role: role,
-          department: 'Computer Science',
-          year: '3rd Year'
-        });
-        setUser(regUser);
-        setCurrentRole(role);
+        try {
+          loggedUser = await authApi.register({
+            name: customName || (role.charAt(0).toUpperCase() + role.slice(1) + " Demo"),
+            email: targetEmail,
+            password: pass,
+            role: role,
+            department: 'Computer Science',
+            year: '3rd Year'
+          });
+        } catch {
+          loggedUser = {
+            id: extraFields?.id || `user_${Date.now()}`,
+            name: customName || 'User',
+            email: targetEmail,
+            role: role,
+          };
+        }
       }
+
+      if (customName) {
+        loggedUser.name = customName;
+      }
+      if (extraFields) {
+        loggedUser = { ...loggedUser, ...extraFields };
+      }
+
+      setUser(loggedUser);
+      setCurrentRole(role);
+      localStorage.setItem('learndebt_user', JSON.stringify(loggedUser));
     } catch (err) {
       console.error("Login failed:", err);
     } finally {
@@ -126,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       user,
+      setUser,
       currentRole,
       loginAsRole,
       loginWithCredentials,

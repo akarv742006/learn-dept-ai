@@ -101,11 +101,20 @@ export const ParentDashboard: React.FC = () => {
 
   const t = UI_LANGUAGES[currentLang];
 
+  const activeParentLocal = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('learndebt_active_parent') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+
   const fetchDashboard = async () => {
     setLoading(true);
     try {
-      const parentId = user?.id || 'parent_ramesh';
-      const res = await parentApi.getDashboard(parentId, undefined, currentLang);
+      const parentId = user?.id || activeParentLocal.id || 'parent_ramesh';
+      const rollNumber = user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId;
+      const res = await parentApi.getDashboard(parentId, rollNumber, currentLang);
       setData(res);
       if (res.knowledgeTree && res.knowledgeTree.length > 0) {
         setActiveTreeNode(res.knowledgeTree[0]);
@@ -136,8 +145,8 @@ export const ParentDashboard: React.FC = () => {
 
     const scriptText = data?.audioVoiceScript || (
       currentLang === 'ta'
-        ? 'வணக்கம். உங்கள் குழந்தையின் கல்லூரி வருகை மற்றும் படிப்பு நிலை மிக சிறப்பாக உள்ளது.'
-        : 'Hello. Your child is progressing very well in college.'
+        ? `வணக்கம் ${parentName}. உங்கள் குழந்தை ${student.name} கல்லூரி வருகை மற்றும் படிப்பு நிலை சீராக உள்ளது.`
+        : `Hello ${parentName}. Your child ${student.name} is progressing steadily in college.`
     );
 
     const utterance = new SpeechSynthesisUtterance(scriptText);
@@ -152,20 +161,20 @@ export const ParentDashboard: React.FC = () => {
     window.speechSynthesis.speak(utterance);
   };
 
-  const student = data?.student || {
-    name: 'Arun Kumar',
-    rollNumber: 'CS2023-042',
-    department: 'Computer Science',
-    year: '3rd Year',
-    overallPerformance: 78,
-    learningDebt: 68,
-    riskLevel: 'High',
-    attendance: 92,
-    mentorTeacher: 'Dr. Rajesh Sharma (Head of Dept)',
-    mentorPhone: '+91 63797 62186'
+  const student = {
+    name: user?.childName || user?.studentName || activeParentLocal.childName || activeParentLocal.studentName || data?.student?.name || 'Student',
+    rollNumber: user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || data?.student?.rollNumber || 'AU-2026-0042',
+    department: user?.department || activeParentLocal.childDept || data?.student?.department || 'Computer Science & Engineering',
+    year: user?.year || activeParentLocal.year || data?.student?.year || '3rd Year',
+    overallPerformance: data?.student?.overallPerformance ?? 82,
+    learningDebt: data?.student?.learningDebt ?? 38,
+    riskLevel: data?.student?.riskLevel || 'Moderate',
+    attendance: data?.student?.attendance ?? 94,
+    mentorTeacher: data?.student?.mentorTeacher || 'Dr. Rajesh Sharma (Head of Dept)',
+    mentorPhone: data?.student?.mentorPhone || '+91 63797 62186',
   };
 
-  const parentName = user?.name || data?.parent?.name || 'Ramesh Krishnan';
+  const parentName = user?.name || activeParentLocal.name || data?.parent?.name || 'Ramesh Krishnan';
   const trafficLight = data?.trafficLight || {
     color: 'RED',
     emoji: '😟',
