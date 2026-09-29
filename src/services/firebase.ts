@@ -1,3 +1,6 @@
+import { resolveStudentParent } from './parentDirectory';
+import { recordConceptTestResult } from './conceptSyncService';
+
 /**
  * Firebase Client Integration for LearnDebt AI
  * Project: learndept-ai (https://console.firebase.google.com/project/learndept-ai/overview)
@@ -269,6 +272,7 @@ class FirebaseSyncService {
     const loginId = `login_${Date.now()}`;
     const studentKey = (data.rollNumber || data.email.split('@')[0] || `std_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
 
+    const parent = resolveStudentParent(data);
     const loginPayload = {
       id: loginId,
       userId: data.userId || studentKey,
@@ -278,6 +282,10 @@ class FirebaseSyncService {
       college: data.college || 'Anna University',
       department: data.department || 'Computer Science',
       rollNumber: data.rollNumber || 'AU-2026-0042',
+      parentName: parent.name,
+      parentPhone: parent.phone,
+      linkedParentName: parent.name,
+      linkedParentPhone: parent.phone,
       loginTime: now,
       status: 'Active',
       lastActive: 'Just now',
@@ -477,10 +485,10 @@ class FirebaseSyncService {
    */
   async getStudents(department?: string): Promise<any[]> {
     const BASE_STUDENTS = [
-      { id: 'student_arun', name: 'Arun Kumar', rollNumber: 'CS2023-042', email: 'arun@student.edu', department: 'Computer Science', year: '3rd Year', overallPerformance: 78, learningDebt: 42, riskLevel: 'Medium', attendance: 92, parentName: 'Ramesh Krishnan', parentPhone: '+91 63797 62186', linkedParentName: 'Ramesh Krishnan', linkedParentPhone: '+91 63797 62186' },
-      { id: 'student_priya', name: 'Priya Patel', rollNumber: 'AI2023-018', email: 'priya@student.edu', department: 'Data Science & Artificial Intelligence', year: '2nd Year', overallPerformance: 85, learningDebt: 28, riskLevel: 'Low', attendance: 96, parentName: 'Meenakshi Sundaram', parentPhone: '+91 63797 62186', linkedParentName: 'Meenakshi Sundaram', linkedParentPhone: '+91 63797 62186' },
-      { id: 'student_rahul', name: 'Rahul Verma', rollNumber: 'IT2023-055', email: 'rahul@student.edu', department: 'Information Technology', year: '4th Year', overallPerformance: 62, learningDebt: 58, riskLevel: 'High', attendance: 84, parentName: 'Karthik Raja', parentPhone: '+91 63797 62186', linkedParentName: 'Karthik Raja', linkedParentPhone: '+91 63797 62186' },
-      { id: 'student_deepa', name: 'Deepa Subramanian', rollNumber: 'EC2023-031', email: 'deepa@student.edu', department: 'Electronics & Communication', year: '3rd Year', overallPerformance: 88, learningDebt: 22, riskLevel: 'Low', attendance: 98, parentName: 'Subramanian S', parentPhone: '+91 63797 62186', linkedParentName: 'Subramanian S', linkedParentPhone: '+91 63797 62186' }
+      { id: 'student_arun', name: 'Arun Kumar', rollNumber: 'CS2023-042', email: 'arun@student.edu', department: 'Computer Science', year: '3rd Year', overallPerformance: 78, learningDebt: 42, riskLevel: 'Medium', attendance: 92, parentName: 'Ramesh Krishnan', parentPhone: '+91 98412 45871', linkedParentName: 'Ramesh Krishnan', linkedParentPhone: '+91 98412 45871' },
+      { id: 'student_priya', name: 'Priya Patel', rollNumber: 'AI2023-018', email: 'priya@student.edu', department: 'Data Science & Artificial Intelligence', year: '2nd Year', overallPerformance: 85, learningDebt: 28, riskLevel: 'Low', attendance: 96, parentName: 'Meenakshi Sundaram', parentPhone: '+91 98401 78234', linkedParentName: 'Meenakshi Sundaram', linkedParentPhone: '+91 98401 78234' },
+      { id: 'student_rahul', name: 'Rahul Verma', rollNumber: 'IT2023-055', email: 'rahul@student.edu', department: 'Information Technology', year: '4th Year', overallPerformance: 62, learningDebt: 58, riskLevel: 'High', attendance: 84, parentName: 'Karthik Raja', parentPhone: '+91 97890 23415', linkedParentName: 'Karthik Raja', linkedParentPhone: '+91 97890 23415' },
+      { id: 'student_deepa', name: 'Deepa Subramanian', rollNumber: 'EC2023-031', email: 'deepa@student.edu', department: 'Electronics & Communication', year: '3rd Year', overallPerformance: 88, learningDebt: 22, riskLevel: 'Low', attendance: 98, parentName: 'Subramanian S', parentPhone: '+91 94441 56789', linkedParentName: 'Subramanian S', linkedParentPhone: '+91 94441 56789' }
     ];
 
     let fbStudents: any[] = [];
@@ -530,6 +538,7 @@ class FirebaseSyncService {
     [...localStudents, ...fbStudents, ...BASE_STUDENTS].forEach((s) => {
       const key = (s.rollNumber || s.studentId || s.email || s.name || '').toLowerCase().trim();
       if (key && !map.has(key)) {
+        const parent = resolveStudentParent(s);
         map.set(key, {
           id: s.id || s.studentId || s.rollNumber || key,
           name: s.name || 'Student',
@@ -541,10 +550,10 @@ class FirebaseSyncService {
           learningDebt: s.learningDebt ?? 42,
           riskLevel: s.riskLevel || ((s.learningDebt ?? 42) > 50 ? 'High' : ((s.learningDebt ?? 42) > 25 ? 'Medium' : 'Low')),
           attendance: s.attendance ?? 92,
-          parentName: s.parentName || s.linkedParentName || 'Parent Contact',
-          parentPhone: s.parentPhone || s.linkedParentPhone || '+91 63797 62186',
-          linkedParentName: s.parentName || s.linkedParentName || 'Parent Contact',
-          linkedParentPhone: s.parentPhone || s.linkedParentPhone || '+91 63797 62186',
+          parentName: parent.name,
+          parentPhone: parent.phone,
+          linkedParentName: parent.name,
+          linkedParentPhone: parent.phone,
           status: s.status || 'Active',
           lastActive: s.lastActive || 'Recently',
         });
@@ -622,6 +631,19 @@ class FirebaseSyncService {
         latestStudent.latestTest = cleanSub;
         localStorage.setItem('learndebt_latest_student', JSON.stringify(latestStudent));
       }
+
+      // Record concept mastery update
+      recordConceptTestResult({
+        subject: cleanSub.department || cleanSub.assignmentTitle || 'DBMS',
+        concept: (cleanSub as any).conceptId || (cleanSub as any).concept || '',
+        assignmentTitle: cleanSub.assignmentTitle || '',
+        percentage: cleanSub.percentage,
+        score: cleanSub.score,
+        maxScore: cleanSub.maxScore,
+        correctAnswers: cleanSub.correctAnswers,
+        totalQuestions: cleanSub.totalQuestions,
+        passed: cleanSub.passed
+      });
 
       // Dispatch browser custom event so all active components in this tab or window update live
       window.dispatchEvent(new CustomEvent('learndebt_test_submitted', { detail: { ...cleanSub, learningDebt: newDebt, riskLevel: newRisk } }));

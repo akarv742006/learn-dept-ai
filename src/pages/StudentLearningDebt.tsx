@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
 import { RiskBadge } from '../components/RiskBadge';
@@ -8,6 +8,35 @@ import { useAuth } from '../context/AuthContext';
 export const StudentLearningDebt: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const [currentDebt, setCurrentDebt] = useState<number>(() => {
+    try {
+      const latest = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+      if (latest && typeof latest.learningDebt === 'number') return latest.learningDebt;
+      const sub = JSON.parse(localStorage.getItem('learndebt_latest_submission') || 'null');
+      if (sub && typeof sub.learningDebt === 'number') return sub.learningDebt;
+    } catch {}
+    return 37;
+  });
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e?.detail?.learningDebt) {
+        setCurrentDebt(e.detail.learningDebt);
+      } else {
+        try {
+          const latest = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+          if (latest && typeof latest.learningDebt === 'number') setCurrentDebt(latest.learningDebt);
+        } catch {}
+      }
+    };
+    window.addEventListener('learndebt_test_submitted', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
@@ -42,14 +71,16 @@ export const StudentLearningDebt: React.FC = () => {
         {/* Left Circular Gauge */}
         <div className="lg:col-span-5 bg-gradient-to-br from-[#12192b] via-[#1a233b] to-indigo-950 p-8 rounded-3xl text-white flex flex-col items-center justify-center text-center shadow-xl relative overflow-hidden">
           <div className="w-40 h-40 rounded-full border-8 border-amber-500/30 border-t-amber-400 border-r-amber-500 flex flex-col items-center justify-center my-4 shadow-inner relative">
-            <span className="text-5xl font-black text-white tracking-tight">37</span>
+            <span className="text-5xl font-black text-white tracking-tight">{currentDebt}</span>
             <span className="text-xs text-slate-300 font-semibold uppercase tracking-wider">/ 100</span>
           </div>
 
-          <RiskBadge level="MODERATE RISK" />
+          <RiskBadge level={currentDebt > 50 ? 'HIGH RISK' : (currentDebt > 25 ? 'MODERATE RISK' : 'LOW RISK')} />
 
           <p className="text-xs text-slate-300 max-w-sm leading-relaxed mt-3">
-            Your current learning debt is mainly caused by unresolved prerequisite gaps in <span className="font-bold text-white">Functional Dependency</span>.
+            {currentDebt <= 25 
+              ? "Prerequisite debt successfully cleared! Foundation verified with high conceptual resilience."
+              : "Your current learning debt is mainly caused by unresolved prerequisite gaps in Functional Dependency."}
           </p>
         </div>
 
@@ -77,7 +108,7 @@ export const StudentLearningDebt: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Net Current Debt</span>
               <div className="text-amber-600 font-black text-2xl">
-                <span>37</span>
+                <span>{currentDebt}</span>
               </div>
               <span className="text-[10px] text-slate-400">Target &lt; 15</span>
             </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { RiskBadge } from '../components/RiskBadge';
 import { firebaseSync } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
+import { resolveStudentParent } from '../services/parentDirectory';
 import { RefreshCw, Search, Users, Sparkles } from 'lucide-react';
 
 export const TeacherStudents: React.FC = () => {
@@ -101,20 +102,22 @@ export const TeacherStudents: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map((s) => (
-                <tr key={s.id || s.rollNumber} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
-                  <td className="p-3.5 font-bold text-slate-900 dark:text-white">
-                    {s.name}
-                  </td>
-                  <td className="p-3.5 font-mono text-slate-500">{s.rollNumber}</td>
-                  <td className="p-3.5">{s.department}</td>
-                  <td className="p-3.5">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">{s.parentName || s.linkedParentName}</div>
-                    <div className="text-[10px] text-slate-400">{s.parentPhone || s.linkedParentPhone}</div>
-                  </td>
-                  <td className="p-3.5 font-bold text-emerald-600">{s.overallPerformance}%</td>
-                  <td className="p-3.5 font-bold text-amber-600">{s.learningDebt} / 100</td>
-                  <td className="p-3.5"><RiskBadge level={s.riskLevel} size="sm" /></td>
+              {filtered.map((s) => {
+                const parent = resolveStudentParent(s);
+                return (
+                  <tr key={s.id || s.rollNumber} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                    <td className="p-3.5 font-bold text-slate-900 dark:text-white">
+                      {s.name}
+                    </td>
+                    <td className="p-3.5 font-mono text-slate-500">{s.rollNumber}</td>
+                    <td className="p-3.5">{s.department}</td>
+                    <td className="p-3.5">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">{parent.name}</div>
+                      <div className="text-[10px] text-slate-400">{parent.phone}</div>
+                    </td>
+                    <td className="p-3.5 font-bold text-emerald-600">{s.overallPerformance}%</td>
+                    <td className="p-3.5 font-bold text-amber-600">{s.learningDebt} / 100</td>
+                    <td className="p-3.5"><RiskBadge level={s.riskLevel} size="sm" /></td>
                   <td className="p-3.5 text-right space-x-2">
                     <button
                       onClick={() => navigate(`/teacher/student/${s.id}`)}
@@ -124,7 +127,8 @@ export const TeacherStudents: React.FC = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

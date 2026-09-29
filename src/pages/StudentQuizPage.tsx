@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { assessmentApi, type Question, type DepartmentAssignment, type StudentSubmission } from '../api/assessmentApi';
 import { aiApi } from '../api/aiApi';
 import { firebaseSync } from '../services/firebase';
+import { recordConceptTestResult } from '../services/conceptSyncService';
 
 const DEPARTMENTS = [
   'All Departments / Campus Wide',
@@ -601,6 +602,20 @@ export const StudentQuizPage: React.FC = () => {
       };
 
       await firebaseSync.recordSubmission(subRecord);
+
+      // Instantly synchronize concept graph node mastery with this test result
+      recordConceptTestResult({
+        subject: selectedSubject,
+        concept: selectedConcept,
+        assignmentTitle: activeAssignmentTitle || `${selectedSubject} Diagnostic Assessment`,
+        percentage: res.percentage,
+        score: res.score,
+        maxScore: res.maxScore,
+        correctAnswers: res.correctAnswers,
+        totalQuestions: res.totalQuestions,
+        passed: res.passed ?? (res.percentage >= 50)
+      });
+
       await fetchMyPastSubmissions();
 
       if (res.percentage >= 70) {

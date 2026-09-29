@@ -5,6 +5,7 @@ import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { teacherApi } from '../api/teacherApi';
 import { firebaseSync } from '../services/firebase';
+import { resolveStudentParent } from '../services/parentDirectory';
 
 export const TeacherDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -165,30 +166,33 @@ export const TeacherDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {studentsList.map((s: any) => (
-                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{s.name}</td>
-                  <td className="py-3.5 px-4 font-mono text-slate-500">{s.rollNumber}</td>
-                  <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{s.department} ({s.year})</td>
-                  <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">{s.linkedParentName || s.parentName || 'Ramesh Krishnan'}</div>
-                    <div className="text-[10px] text-slate-400">{s.linkedParentPhone || s.parentPhone || '+91 63797 62186'}</div>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-emerald-600">{s.overallPerformance}%</td>
-                  <td className="py-3.5 px-4 font-bold text-amber-500">{s.learningDebt} pts</td>
-                  <td className="py-3.5 px-4">
-                    <RiskBadge level={s.riskLevel} size="sm" />
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <button
-                      onClick={() => navigate(`/teacher/student/${s.id}`)}
-                      className="px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition cursor-pointer"
-                    >
-                      Inspect Profile →
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {studentsList.map((s: any) => {
+                const parent = resolveStudentParent(s);
+                return (
+                  <tr key={s.id || s.rollNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{s.name}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-500">{s.rollNumber}</td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{s.department} ({s.year})</td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">{parent.name}</div>
+                      <div className="text-[10px] text-slate-400">{parent.phone}</div>
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-emerald-600">{s.overallPerformance}%</td>
+                    <td className="py-3.5 px-4 font-bold text-amber-500">{s.learningDebt} pts</td>
+                    <td className="py-3.5 px-4">
+                      <RiskBadge level={s.riskLevel} size="sm" />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <button
+                        onClick={() => navigate(`/teacher/student/${s.id}`)}
+                        className="px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition cursor-pointer"
+                      >
+                        Inspect Profile →
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

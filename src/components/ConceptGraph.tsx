@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -19,11 +19,18 @@ import {
   Sliders,
   CheckCircle2,
   AlertTriangle,
-  Play
+  Play,
+  Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { ConceptNode } from '../types/debt';
 import { RiskBadge } from './RiskBadge';
+import {
+  getConceptMasteryMap,
+  syncSubmissionsToConceptGraph,
+  recordConceptTestResult,
+  type ConceptOverride
+} from '../services/conceptSyncService';
 
 // Custom Concept Node component for ReactFlow
 const CustomConceptNode = ({ data }: { data: any }) => {
@@ -433,21 +440,125 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
   const [filterMode, setFilterMode] = useState<'all' | 'bottlenecks' | 'high_risk' | 'mastered'>('all');
   const [simulatedBoost, setSimulatedBoost] = useState<number>(0);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [masteryMap, setMasteryMap] = useState<Record<string, ConceptOverride>>(getConceptMasteryMap);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
   const currentDataset = MULTI_SUBJECT_DATA[activeSubject];
-  const [selectedNode, setSelectedNode] = useState<any>(currentDataset.nodes[2]);
+
+  // Active nodes dynamically merged with live test completion overrides
+  const activeNodes = useMemo(() => {
+    return currentDataset.nodes.map((n) => {
+      const override = masteryMap[n.id];
+      if (!override) return n;
+      return {
+        ...n,
+        mastery: override.mastery,
+        risk: override.risk,
+        correctAnswers: override.correctAnswers ?? n.correctAnswers,
+        totalAttempts: override.totalAttempts ?? n.totalAttempts,
+        repeatedErrors: override.repeatedErrors ?? n.repeatedErrors,
+        lastPracticed: override.lastPracticed || n.lastPracticed,
+        aiInsight: override.aiInsight || n.aiInsight,
+      };
+    });
+  }, [currentDataset, masteryMap]);
+
+  const [selectedNode, setSelectedNode] = useState<any>(activeNodes[2] || activeNodes[0]);
+
+  // Keep selected node up to date when masteryMap updates
+  useEffect(() => {
+    if (selectedNode) {
+      const match = activeNodes.find((n) => n.id === selectedNode.id);
+      if (match) setSelectedNode(match);
+    }
+  }, [activeNodes]);
+
+  // Synchronize past tests and listen for new live test submissions
+  useEffect(() => {
+    // 1. Initial sync of all submissions from localStorage
+    const synced = syncSubmissionsToConceptGraph();
+    setMasteryMap(synced);
+
+    // 2. Listeners for live events
+    const onConceptUpdated = (e: any) => {
+      const detail = e.detail;
+      const updated = getConceptMasteryMap();
+      setMasteryMap(updated);
+      if (detail?.subjectKey && detail.subjectKey !== activeSubject) {
+        setActiveSubject(detail.subjectKey);
+      }
+      setSyncToast(`🟢 Graph Updated! ${detail?.conceptDisplayName || 'Concept'} mastery increased to ${detail?.percentage || 80}%`);
+      setTimeout(() => setSyncToast(null), 5000);
+    };
+
+    const onTestSubmitted = (e: any) => {
+      const sub = e.detail;
+      const updated = syncSubmissionsToConceptGraph();
+      setMasteryMap(updated);
+      if (sub?.assignmentTitle || sub?.subject) {
+        setSyncToast(`🟢 Live Test Synced: "${sub.assignmentTitle || sub.subject}" (${sub.percentage}%) applied to concept network!`);
+      } else {
+        setSyncToast('🟢 Live Test Synced: Concept Graph updated in real-time!');
+      }
+      setTimeout(() => setSyncToast(null), 5000);
+    };
+
+    window.addEventListener('learndebt_concept_updated', onConceptUpdated);
+    window.addEventListener('learndebt_test_submitted', onTestSubmitted);
+    window.addEventListener('storage', onTestSubmitted);
+
+    return () => {
+      window.removeEventListener('learndebt_concept_updated', onConceptUpdated);
+      window.removeEventListener('learndebt_test_submitted', onTestSubmitted);
+      window.removeEventListener('storage', onTestSubmitted);
+    };
+  }, []);
+
+  const handleManualSync = () => {
+    setIsSyncing(true);
+    const updated = syncSubmissionsToConceptGraph();
+    setMasteryMap(updated);
+    setTimeout(() => {
+      setIsSyncing(false);
+      setSyncToast('Concept Graph successfully refreshed with all past student assessments!');
+      setTimeout(() => setSyncToast(null), 4000);
+    }, 500);
+  };
+
+  // Quick simulation trigger for testing
+  const handleSimulatePassedTest = (node: any) => {
+    const res = recordConceptTestResult({
+      subject: activeSubject === 'dsa' ? 'Data Structures' : activeSubject === 'networks' ? 'Computer Networks' : 'DBMS',
+      concept: node.id,
+      assignmentTitle: `${node.name} Diagnostic Check`,
+      percentage: 85,
+      score: 40,
+      maxScore: 50,
+      correctAnswers: 4,
+      totalQuestions: 5,
+      passed: true
+    });
+    setMasteryMap({ ...res.masteryMap });
+    setSyncToast(`🎉 Test Passed! ${node.name} updated to 85% Mastery (Low Risk)!`);
+    setTimeout(() => setSyncToast(null), 4500);
+  };
 
   // Handle subject change
   const handleSubjectChange = (subj: 'dbms' | 'dsa' | 'networks') => {
     setActiveSubject(subj);
-    setSelectedNode(MULTI_SUBJECT_DATA[subj].nodes[2]);
+    const nodes = MULTI_SUBJECT_DATA[subj].nodes.map((n) => {
+      const override = masteryMap[n.id];
+      return override ? { ...n, ...override } : n;
+    });
+    setSelectedNode(nodes[2] || nodes[0]);
     setSimulatedBoost(0);
     setIsSimulating(false);
   };
 
   // Filtered nodes with interactive simulated recovery boost
   const flowNodes = useMemo(() => {
-    return currentDataset.nodes
+    return activeNodes
       .filter((n) => {
         if (filterMode === 'bottlenecks') return n.risk === 'Critical';
         if (filterMode === 'high_risk') return n.mastery < 50;
@@ -459,7 +570,7 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
         let dynamicMastery = n.mastery;
         let dynamicRisk = n.risk;
         if (isSimulating && simulatedBoost > 0) {
-          if (n.id === currentDataset.nodes[2].id) {
+          if (n.id === activeNodes[2]?.id) {
             dynamicMastery = Math.min(100, n.mastery + simulatedBoost);
           } else if (n.mastery < 70) {
             dynamicMastery = Math.min(100, n.mastery + Math.round(simulatedBoost * 0.7));
@@ -477,7 +588,7 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
           },
         };
       });
-  }, [currentDataset, filterMode, selectedNode, isSimulating, simulatedBoost]);
+  }, [activeNodes, filterMode, selectedNode, isSimulating, simulatedBoost]);
 
   const flowEdges = useMemo(() => {
     return currentDataset.edges;
@@ -490,9 +601,9 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
   };
 
   // Graph KPI metrics
-  const totalConcepts = currentDataset.nodes.length;
-  const criticalGaps = currentDataset.nodes.filter((n) => n.risk === 'Critical').length;
-  const masteredCount = currentDataset.nodes.filter((n) => n.mastery >= 75).length;
+  const totalConcepts = activeNodes.length;
+  const criticalGaps = activeNodes.filter((n) => n.risk === 'Critical').length;
+  const masteredCount = activeNodes.filter((n) => n.mastery >= 75).length;
   const simulatedDebtReduction = Math.round(simulatedBoost * 0.45);
 
   return (
@@ -538,6 +649,31 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Live Synchronization Status Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-indigo-500/10 border border-emerald-500/30 dark:border-emerald-500/20 rounded-2xl text-xs">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="font-extrabold text-slate-800 dark:text-slate-100">
+            Real-Time Assessment Sync:
+          </span>
+          <span className="text-slate-600 dark:text-slate-300">
+            {syncToast || "Completing any test instantly updates node mastery, risk colors, and resolves prerequisite debt in real-time."}
+          </span>
+        </div>
+
+        <button
+          onClick={handleManualSync}
+          disabled={isSyncing}
+          className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-xs transition cursor-pointer self-end sm:self-auto shrink-0"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-500' : ''}`} />
+          <span>{isSyncing ? 'Syncing...' : 'Sync Test Results'}</span>
+        </button>
       </div>
 
       {/* KPI Stats & Filter Bar */}
@@ -753,21 +889,35 @@ export const ConceptGraph: React.FC<ConceptGraphProps> = ({ onAssignPath }) => {
           </div>
 
           {/* Action Triggers */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => navigate('/student/quiz')}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Launch Diagnostic Quiz on {selectedNode.name}</span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  const subjParam = activeSubject === 'dsa' ? 'Data Structures' : activeSubject === 'networks' ? 'Computer Networks' : 'DBMS';
+                  navigate(`/student/quiz?subject=${encodeURIComponent(subjParam)}&concept=${encodeURIComponent(selectedNode.id)}`);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Play className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Take Diagnostic Quiz on {selectedNode.name}</span>
+              </button>
+
+              <button
+                onClick={() => handleSimulatePassedTest(selectedNode)}
+                className="px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 font-bold text-xs border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 transition cursor-pointer"
+                title="Simulate student completing this test with 85% to immediately verify node recovery and downstream unblocking"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span>Simulate Passed Test (+40%)</span>
+              </button>
+            </div>
 
             <button
               onClick={() => onAssignPath && onAssignPath(selectedNode.id)}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Assign {selectedNode.name} Remediation Mission</span>
+              <span>Assign {selectedNode.name} Mission</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
