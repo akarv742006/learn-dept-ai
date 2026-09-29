@@ -133,6 +133,35 @@ def login(req: UserLoginRequest):
     user_id = str(user_doc.get("_id", user_doc.get("id")))
     token = create_jwt_token(user_id, email, user_doc["role"])
 
+    # Update last login time in MongoDB
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    db["users"].update_one(
+        {"_id": user_doc["_id"]},
+        {"$set": {"lastLoginAt": now, "updatedAt": now}}
+    )
+
+    # Sync login activity to Firebase Realtime Database
+    try:
+        from app.services.firebase_service import _put_to_firebase
+        login_id = f"login_{user_id}_{int(time.time())}"
+        _put_to_firebase(f"logins/{login_id}", {
+            "id": login_id,
+            "userId": user_id,
+            "name": user_doc.get("name"),
+            "email": email,
+            "role": user_doc.get("role", "student"),
+            "college": user_doc.get("college", "Anna University"),
+            "department": user_doc.get("department", "Computer Science"),
+            "loginMethod": "Password",
+            "timestamp": now,
+            "lastLoginAt": now
+        })
+        if user_doc.get("role") == "student":
+            _put_to_firebase(f"students/{user_id}/lastActive", now)
+            _put_to_firebase(f"students/{user_id}/status", "Active")
+    except Exception as e:
+        pass
+
     # Check for active subscription
     sub = db["subscriptions"].find_one({"$or": [{"user_id": user_id}, {"userId": user_id}], "status": "active"})
     is_prem = bool(sub or user_doc.get("is_premium"))

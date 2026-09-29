@@ -28,15 +28,20 @@ def get_admin_dashboard():
             "id": str(u.get("_id", u.get("id", ""))),
             "name": u.get("name", "User"),
             "email": u.get("email", ""),
-            "role": u.get("role", "student"),
+            "role": u.get("role", "student").capitalize(),
+            "institution": u.get("college") or u.get("institution") or "Anna University",
             "department": u.get("department", "Computer Science"),
             "year": u.get("year", "3rd Year"),
+            "status": "Active",
+            "lastActive": str(u.get("lastLoginAt", u.get("updatedAt", "Recently"))),
             "createdAt": str(u.get("createdAt", "")),
             "lastLoginAt": str(u.get("lastLoginAt", u.get("createdAt", "")))
         })
 
+    student_count_from_users = db["users"].count_documents({"role": {"$in": ["student", "Student"]}})
+    student_count_from_students = db["students"].count_documents({})
+    total_students = max(student_count_from_users, student_count_from_students)
     total_users = len(users_list)
-    total_students = db["students"].count_documents({})
     total_questions = db["questions"].count_documents({})
     total_assessments = db["assessments"].count_documents({})
     total_subscriptions = db["subscriptions"].count_documents({})

@@ -246,6 +246,55 @@ class FirebaseSyncService {
   }
 
   /**
+   * Record student / user login event into Firebase Realtime Database
+   * under /logins/{loginId}.json and update /students/{studentKey}
+   */
+  async recordLogin(data: {
+    userId?: string;
+    name: string;
+    email: string;
+    role: string;
+    college?: string;
+    department?: string;
+    rollNumber?: string;
+  }): Promise<boolean> {
+    const now = new Date().toISOString();
+    const loginId = `login_${Date.now()}`;
+    const studentKey = (data.rollNumber || data.email.split('@')[0] || `std_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const loginPayload = {
+      id: loginId,
+      userId: data.userId || studentKey,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      college: data.college || 'Anna University',
+      department: data.department || 'Computer Science',
+      rollNumber: data.rollNumber || 'AU-2026-0042',
+      loginTime: now,
+      status: 'Active',
+      lastActive: 'Just now',
+    };
+
+    // 1. Store in top-level /logins/{loginId}
+    await this.put(`logins/${loginId}`, loginPayload);
+    // 2. Update student's lastLogin in Firebase RTDB
+    await this.put(`students/${studentKey}/lastLoginAt`, now);
+    await this.put(`students/${studentKey}/lastActive`, 'Just now');
+    await this.put(`students/${studentKey}/status`, 'Active');
+
+    // 3. Store in localStorage for instant admin portal consumption
+    try {
+      const storedLogins = JSON.parse(localStorage.getItem('learndebt_recent_logins') || '[]');
+      const filtered = storedLogins.filter((l: any) => l.email !== data.email);
+      localStorage.setItem('learndebt_recent_logins', JSON.stringify([loginPayload, ...filtered].slice(0, 50)));
+    } catch {}
+
+    console.log(`[Firebase] Recorded login for ${data.name} (${data.role}) under /logins/${loginId}`);
+    return true;
+  }
+
+  /**
    * Synchronize local subscription state to Firebase project learndept-ai.
    */
   async syncSubscription(state: FirebaseSubscriptionState): Promise<{ success: boolean; mode: string }> {

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/Logo';
+import { firebaseSync } from '../services/firebase';
 import type { UserRole } from '../types/debt';
 
 interface StudentProfile {
@@ -204,6 +205,16 @@ export const LoginPage: React.FC = () => {
     setDepartment(s.department);
     setSemester(s.semester);
     setSelectedRole('student');
+    try {
+      firebaseSync.recordLogin({
+        name: s.name,
+        email: s.email,
+        role: 'Student',
+        college: 'Anna University',
+        department: s.department,
+        rollNumber: s.rollNo,
+      });
+    } catch {}
   };
 
   const handleSelectParentProfile = (p: ParentPersona) => {
@@ -307,8 +318,22 @@ export const LoginPage: React.FC = () => {
       .join(' ');
 
     loginAsRole(selectedRole, formattedName, email);
-    if (selectedRole === 'student') navigate('/student/dashboard');
-    else if (selectedRole === 'teacher') navigate('/teacher/dashboard');
+
+    if (selectedRole === 'student') {
+      try {
+        firebaseSync.recordLogin({
+          name: formattedName,
+          email: email,
+          role: 'Student',
+          college: 'Anna University',
+          department: department,
+          rollNumber: rollNumber || 'AU-2026-0042',
+        });
+      } catch (err) {
+        console.warn('Record login warning:', err);
+      }
+      navigate('/student/dashboard');
+    } else if (selectedRole === 'teacher') navigate('/teacher/dashboard');
     else if (selectedRole === 'admin') navigate('/admin/dashboard');
   };
 

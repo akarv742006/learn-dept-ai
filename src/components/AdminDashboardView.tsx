@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, X, CheckCircle2, RefreshCw, Database, Server, CreditCard, Building2 } from 'lucide-react';
+import {
+  Search, UserPlus, X, CheckCircle2, RefreshCw, Database, Server,
+  CreditCard, Building2, Activity, Wifi, Radio, UserCheck, Clock, Zap
+} from 'lucide-react';
 import type { AdminUser } from '../types/debt';
 import { MOCK_ADMIN_USERS } from '../data/mockPlatformData';
 import { adminApi } from '../api/adminApi';
@@ -15,16 +18,159 @@ export const AdminDashboardView: React.FC = () => {
   const [adminMetrics, setAdminMetrics] = useState<any>(null);
   const [revenueStats, setRevenueStats] = useState<AdminRevenueStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recentLogins, setRecentLogins] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem('learndebt_recent_logins');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
 
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const [data, rev] = await Promise.all([
+      // 1. Fetch backend dashboard and SaaS revenue in parallel
+      const [backendData, rev] = await Promise.allSettled([
         adminApi.getDashboard(),
         saasApi.getAdminRevenue()
       ]);
-      setAdminMetrics(data.metrics);
-      setRevenueStats(rev);
+
+      const dashData = backendData.status === 'fulfilled' ? backendData.value : null;
+      if (rev.status === 'fulfilled') {
+        setRevenueStats(rev.value);
+      }
+
+      // 2. Fetch Firebase RTDB students & logins in parallel
+      let fbStudents: any = {};
+      let fbLogins: any = {};
+      try {
+        const [resStudents, resLogins] = await Promise.all([
+          fetch('https://learndept-ai-default-rtdb.firebaseio.com/students.json'),
+          fetch('https://learndept-ai-default-rtdb.firebaseio.com/logins.json')
+        ]);
+        if (resStudents.ok) fbStudents = (await resStudents.json()) || {};
+        if (resLogins.ok) fbLogins = (await resLogins.json()) || {};
+      } catch (fbErr) {
+        console.warn('Firebase RTDB sync warning:', fbErr);
+      }
+
+      // 3. Local storage records
+      let localStudents: any[] = [];
+      let localRecentLogins: any[] = [];
+      try {
+        localStudents = JSON.parse(localStorage.getItem('learndebt_registered_students') || '[]');
+        const latestStu = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+        if (latestStu && !localStudents.some(s => s.email === latestStu.email)) {
+          localStudents.unshift(latestStu);
+        }
+        localRecentLogins = JSON.parse(localStorage.getItem('learndebt_recent_logins') || '[]');
+      } catch {}
+
+      // 4. Merge recent student logins for live activity widget
+      const parsedFbLogins = Object.entries(fbLogins).map(([k, v]: [string, any]) => ({
+        id: v.id || k,
+        name: v.name || 'Student User',
+        email: v.email || 'student@domain.edu',
+        role: v.role || 'Student',
+        department: v.department || 'Computer Science',
+        timestamp: v.timestamp || v.lastLoginAt || new Date().toISOString(),
+        loginMethod: v.loginMethod || 'Email/Password'
+      }));
+
+      const mergedLogins = [...parsedFbLogins, ...localRecentLogins];
+      const uniqueLoginsMap = new Map();
+      mergedLogins.forEach(l => {
+        const key = `${l.email || l.name}_${l.timestamp || l.id}`;
+        if (!uniqueLoginsMap.has(key)) {
+          uniqueLoginsMap.set(key, l);
+        }
+      });
+      const sortedLogins = Array.from(uniqueLoginsMap.values()).sort(
+        (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      setRecentLogins(sortedLogins);
+
+      // 5. Merge all users for the roster & statistics
+      const mergedUserMap = new Map<string, AdminUser>();
+
+      // A. Seed default mock users
+      MOCK_ADMIN_USERS.forEach(u => mergedUserMap.set(u.email.toLowerCase(), u));
+
+      // B. Backend users if available
+      if (dashData?.users && Array.isArray(dashData.users)) {
+        dashData.users.forEach((u: any) => {
+          mergedUserMap.set(u.email.toLowerCase(), {
+            id: u.id || `usr-${Date.now()}`,
+            name: u.name,
+            email: u.email,
+            role: (u.role?.charAt(0).toUpperCase() + u.role?.slice(1)) as any,
+            institution: u.institution || 'Anna University',
+            status: u.status || 'Active',
+            lastActive: u.lastActive || 'Recently'
+          });
+        });
+      }
+
+      // C. Firebase students
+      if (fbStudents && typeof fbStudents === 'object') {
+        Object.entries(fbStudents).forEach(([k, s]: [string, any]) => {
+          const email = (s.email || `${s.name?.toLowerCase().replace(/\s+/g, '')}@student.edu`).toLowerCase();
+          mergedUserMap.set(email, {
+            id: s.rollNumber || s.studentId || k,
+            name: s.name || 'Enrolled Student',
+            email: email,
+            role: 'Student',
+            institution: s.college || s.institution || 'Anna University',
+            status: s.status || 'Active',
+            lastActive: s.lastActive ? new Date(s.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Online now'
+          });
+        });
+      }
+
+      // D. Local storage students
+      localStudents.forEach((s: any) => {
+        const email = (s.email || `${s.name?.toLowerCase().replace(/\s+/g, '')}@student.edu`).toLowerCase();
+        if (!mergedUserMap.has(email)) {
+          mergedUserMap.set(email, {
+            id: s.rollNumber || s.studentId || `stu-${Date.now()}`,
+            name: s.name,
+            email: email,
+            role: 'Student',
+            institution: s.college || s.institution || 'Anna University',
+            status: 'Active',
+            lastActive: 'Online now'
+          });
+        }
+      });
+
+      // E. Update any user's lastActive if they appeared in recentLogins
+      sortedLogins.forEach((log: any) => {
+        const email = (log.email || '').toLowerCase();
+        if (mergedUserMap.has(email)) {
+          const existing = mergedUserMap.get(email)!;
+          mergedUserMap.set(email, {
+            ...existing,
+            status: 'Active',
+            lastActive: 'Online now'
+          });
+        }
+      });
+
+      const finalUsers = Array.from(mergedUserMap.values());
+      setUsers(finalUsers);
+
+      const totalStudentsCount = finalUsers.filter(u => u.role.toLowerCase() === 'student').length;
+
+      // Update metrics
+      setAdminMetrics({
+        ...(dashData?.metrics || {}),
+        totalUsers: Math.max(dashData?.metrics?.totalUsers || 0, finalUsers.length),
+        totalStudents: Math.max(dashData?.metrics?.totalStudents || 0, totalStudentsCount)
+      });
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
     } catch (e) {
       console.warn("Using baseline admin metrics:", e);
     } finally {
@@ -34,6 +180,9 @@ export const AdminDashboardView: React.FC = () => {
 
   useEffect(() => {
     fetchMetrics();
+    // Auto-poll every 12 seconds so admin view stays continuously live
+    const interval = setInterval(fetchMetrics, 12000);
+    return () => clearInterval(interval);
   }, []);
 
   // New User Form State
@@ -81,16 +230,31 @@ export const AdminDashboardView: React.FC = () => {
       {/* 1. Header */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-[#12192b] p-6 md:p-8 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-2.5 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
-            Institutional Administration
-          </span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-400/30 px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Institutional Administration • Live Sync
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Synced: <strong className="text-indigo-200">{lastSyncTime}</strong>
+            </span>
+          </div>
           <h1 className="text-2xl font-black text-white tracking-tight">Administrator Control Center</h1>
           <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            MongoDB Atlas Single Source of Truth Analytics & Inspection Console
+            Real-time synchronization across MongoDB Atlas & Firebase Realtime Database
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => fetchMetrics()}
+            disabled={loading}
+            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white font-bold text-xs shadow-md border border-slate-700 flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+            title="Refresh Live Data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-400' : 'text-slate-300'}`} />
+            <span>{loading ? 'Syncing...' : 'Refresh Live Data'}</span>
+          </button>
           <button
             onClick={() => navigate('/admin/subscription')}
             className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md border border-purple-400/30 flex items-center gap-2 transition cursor-pointer"
@@ -261,6 +425,78 @@ export const AdminDashboardView: React.FC = () => {
         </div>
       </div>
 
+      {/* 2.8 Live Student Logins & Real-Time Presence Feed */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Activity className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                  Real-Time Student Logins & Active Sessions
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  Firebase Live
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Live stream of authenticated student sessions recorded across Firebase Realtime Database & MongoDB
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-400 font-medium">Recorded Logins:</span>
+            <span className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black">
+              {recentLogins.length} Sessions
+            </span>
+          </div>
+        </div>
+
+        {recentLogins.length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+            Waiting for student logins... Whenever any student logs in, their live session card will appear here instantly.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentLogins.slice(0, 6).map((login, idx) => (
+              <div
+                key={login.id || idx}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3 hover:border-emerald-400/50 transition"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                    {login.name ? login.name.charAt(0).toUpperCase() : 'S'}
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-bold text-xs text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                      <span>{login.name}</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">{login.email}</div>
+                    <div className="text-[10px] text-indigo-500 font-semibold truncate mt-0.5">
+                      {login.department || 'Computer Science'} • {login.loginMethod || 'Email/Password'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 block mb-1">
+                    Logged In
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-mono">
+                    {login.timestamp ? new Date(login.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 3. User Management Controls */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -301,6 +537,7 @@ export const AdminDashboardView: React.FC = () => {
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Institution</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Last Activity</th>
                 <th className="py-3 px-4">Action</th>
               </tr>
             </thead>
@@ -321,6 +558,9 @@ export const AdminDashboardView: React.FC = () => {
                     }`}>
                       {u.status}
                     </span>
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                    {u.lastActive || 'Recently'}
                   </td>
                   <td className="py-3.5 px-4">
                     <button

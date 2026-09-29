@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminDashboardView } from '../components/AdminDashboardView';
 import {
   Users, BookOpen, Layers, Award, FileText, Settings, Plus, Search,
@@ -18,19 +18,110 @@ const DEPARTMENTS = [
 
 export const AdminUsers: React.FC = () => <AdminDashboardView />;
 
+const BASE_STUDENTS = [
+  { id: 'STU-101', name: 'Arun Kumar', email: 'arun@student.edu', dept: 'Computer Science', year: 'Year 3', debt: '38%', gpa: '8.4', status: 'Active' },
+  { id: 'STU-102', name: 'Priya Sharma', email: 'priya@student.edu', dept: 'Information Technology', year: 'Year 2', debt: '62%', gpa: '7.1', status: 'Active' },
+  { id: 'STU-103', name: 'Rahul Verma', email: 'rahul@student.edu', dept: 'Electronics & Communication', year: 'Year 4', debt: '18%', gpa: '9.2', status: 'Active' },
+  { id: 'STU-104', name: 'Sneha Patel', email: 'sneha@student.edu', dept: 'Computer Science', year: 'Year 3', debt: '45%', gpa: '7.9', status: 'Active' },
+  { id: 'STU-105', name: 'Karthik Raja', email: 'karthik@student.edu', dept: 'Mechanical Engineering', year: 'Year 1', debt: '29%', gpa: '8.1', status: 'Active' },
+  { id: 'STU-106', name: 'Ananya Rao', email: 'ananya@student.edu', dept: 'Civil Engineering', year: 'Year 2', debt: '33%', gpa: '8.6', status: 'Active' }
+];
+
 // 1. ADMIN STUDENTS VIEW
 export const AdminStudents: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState('All');
   const [search, setSearch] = useState('');
+  const [students, setStudents] = useState<any[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('learndebt_registered_students') || '[]');
+      const latest = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+      const customList = latest ? [latest, ...stored.filter((s: any) => s.email !== latest.email)] : stored;
+      const mapped = customList.map((s: any, idx: number) => ({
+        id: s.rollNumber || s.studentId || `STU-${200 + idx}`,
+        name: s.name,
+        email: s.email,
+        dept: s.department || 'Computer Science',
+        year: s.year || 'Year 3',
+        debt: `${s.learningDebt || 38}%`,
+        gpa: '8.5',
+        status: 'Active',
+      }));
+      return [...mapped, ...BASE_STUDENTS];
+    } catch {}
+    return BASE_STUDENTS;
+  });
 
-  const students = [
-    { id: 'STU-101', name: 'Arun Kumar', email: 'arun@student.edu', dept: 'Computer Science', year: 'Year 3', debt: '38%', gpa: '8.4', status: 'Active' },
-    { id: 'STU-102', name: 'Priya Sharma', email: 'priya@student.edu', dept: 'Information Technology', year: 'Year 2', debt: '62%', gpa: '7.1', status: 'Active' },
-    { id: 'STU-103', name: 'Rahul Verma', email: 'rahul@student.edu', dept: 'Electronics & Communication', year: 'Year 4', debt: '18%', gpa: '9.2', status: 'Active' },
-    { id: 'STU-104', name: 'Sneha Patel', email: 'sneha@student.edu', dept: 'Computer Science', year: 'Year 3', debt: '45%', gpa: '7.9', status: 'Active' },
-    { id: 'STU-105', name: 'Karthik Raja', email: 'karthik@student.edu', dept: 'Mechanical Engineering', year: 'Year 1', debt: '29%', gpa: '8.1', status: 'Active' },
-    { id: 'STU-106', name: 'Ananya Rao', email: 'ananya@student.edu', dept: 'Civil Engineering', year: 'Year 2', debt: '33%', gpa: '8.6', status: 'Active' }
-  ];
+  const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const fetchLiveStudents = async () => {
+    setLoading(true);
+    try {
+      const [resStudents, resLogins] = await Promise.allSettled([
+        fetch('https://learndept-ai-default-rtdb.firebaseio.com/students.json'),
+        fetch('https://learndept-ai-default-rtdb.firebaseio.com/logins.json')
+      ]);
+
+      let fbStudentsData: any = null;
+      let fbLoginsData: any = null;
+
+      if (resStudents.status === 'fulfilled' && resStudents.value.ok) {
+        fbStudentsData = await resStudents.value.json();
+      }
+      if (resLogins.status === 'fulfilled' && resLogins.value.ok) {
+        fbLoginsData = await resLogins.value.json();
+      }
+
+      if (fbStudentsData && typeof fbStudentsData === 'object') {
+        const fbStudents = Object.entries(fbStudentsData).map(([key, val]: [string, any]) => {
+          let lastActive = 'Recently';
+          if (val.lastActive) {
+            try {
+              lastActive = new Date(val.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {}
+          }
+          return {
+            id: val.rollNumber || val.studentId || key,
+            name: val.name || 'Student',
+            email: val.email || `${(val.name || 'student').toLowerCase().replace(/\s+/g, '')}@student.edu`,
+            dept: val.department || 'Computer Science',
+            year: val.year || 'Year 3',
+            debt: `${val.learningDebt || 38}%`,
+            gpa: '8.6',
+            status: 'Active',
+            lastActive: lastActive,
+          };
+        });
+
+        // Also check recent logins to mark online
+        if (fbLoginsData && typeof fbLoginsData === 'object') {
+          const loginEmails = new Set(Object.values(fbLoginsData).map((l: any) => (l.email || '').toLowerCase()));
+          fbStudents.forEach(s => {
+            if (loginEmails.has(s.email.toLowerCase())) {
+              s.lastActive = 'Online now';
+            }
+          });
+        }
+
+        setStudents(prev => {
+          const emails = new Set(fbStudents.map(s => s.email.toLowerCase()));
+          const nonDup = prev.filter(s => !emails.has(s.email.toLowerCase()));
+          return [...fbStudents, ...nonDup];
+        });
+      }
+      setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (e) {
+      console.warn('Live students fetch fallback:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveStudents();
+    const interval = setInterval(fetchLiveStudents, 12000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filtered = students.filter(s => {
     const matchDept = selectedDept === 'All' || s.dept === selectedDept;
@@ -42,12 +133,28 @@ export const AdminStudents: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-16">
       <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Student Roster Management</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Student Roster Management • Live RTDB
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Synced: <strong className="text-slate-600 dark:text-slate-300">{lastRefreshed}</strong>
+            </span>
+          </div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mt-1">Institutional Student Directory</h1>
-          <p className="text-xs text-slate-500 mt-1">Monitor enrollment, department allocations, and individual learning debt status.</p>
+          <p className="text-xs text-slate-500 mt-1">Monitor real-time student logins, enrollment, department allocations, and individual learning debt status.</p>
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchLiveStudents()}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
@@ -83,6 +190,7 @@ export const AdminStudents: React.FC = () => {
                 <th className="py-3.5 px-4">GPA</th>
                 <th className="py-3.5 px-4">Learning Debt</th>
                 <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Last Activity</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -106,6 +214,9 @@ export const AdminStudents: React.FC = () => {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
                       {s.status}
                     </span>
+                  </td>
+                  <td className="py-4 px-4 text-slate-400 font-mono text-[11px]">
+                    {s.lastActive || 'Recently'}
                   </td>
                 </tr>
               ))}

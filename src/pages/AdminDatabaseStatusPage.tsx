@@ -25,6 +25,54 @@ export const AdminDatabaseStatusPage: React.FC = () => {
     setError(null);
     try {
       const data = await adminApi.getDatabaseStatus();
+
+      // Also merge Firebase RTDB students & logins to guarantee real-time admin visibility
+      try {
+        const [resStudents, resLogins] = await Promise.allSettled([
+          fetch('https://learndept-ai-default-rtdb.firebaseio.com/students.json'),
+          fetch('https://learndept-ai-default-rtdb.firebaseio.com/logins.json')
+        ]);
+
+        const existingEmails = new Set((data.userLogins || []).map(u => u.email.toLowerCase()));
+
+        if (resStudents.status === 'fulfilled' && resStudents.value.ok) {
+          const fbStudents = await resStudents.value.json();
+          if (fbStudents && typeof fbStudents === 'object') {
+            Object.entries(fbStudents).forEach(([k, s]: [string, any]) => {
+              const email = (s.email || `${(s.name || 'student').toLowerCase().replace(/\s+/g, '')}@student.edu`).toLowerCase();
+              if (!existingEmails.has(email)) {
+                existingEmails.add(email);
+                data.userLogins = data.userLogins || [];
+                data.userLogins.push({
+                  id: s.rollNumber || s.studentId || k,
+                  name: s.name || 'Student',
+                  email: email,
+                  role: 'student',
+                  department: s.department || 'Computer Science',
+                  lastLoginAt: s.lastActive || new Date().toISOString()
+                });
+              }
+            });
+          }
+        }
+
+        // Check recent logins to update lastLoginAt
+        if (resLogins.status === 'fulfilled' && resLogins.value.ok) {
+          const fbLogins = await resLogins.value.json();
+          if (fbLogins && typeof fbLogins === 'object') {
+            Object.values(fbLogins).forEach((l: any) => {
+              const email = (l.email || '').toLowerCase();
+              const target = data.userLogins?.find(u => u.email.toLowerCase() === email);
+              if (target && l.timestamp) {
+                target.lastLoginAt = l.timestamp;
+              }
+            });
+          }
+        }
+      } catch (fbErr) {
+        console.warn('Firebase RTDB supplemental sync in DB status:', fbErr);
+      }
+
       setDbStatus(data);
       setLastRefreshed(new Date().toLocaleTimeString());
     } catch (e: any) {
