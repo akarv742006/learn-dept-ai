@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   HeartHandshake,
   CheckCircle2,
@@ -26,6 +26,7 @@ import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { parentApi } from '../api/parentApi';
 import { firebaseSync } from '../services/firebase';
+import { resolveStudentParent } from '../services/parentDirectory';
 
 type SupportedLang = 'ta' | 'en';
 
@@ -183,28 +184,91 @@ export const ParentDashboard: React.FC = () => {
     mentorPhone: data?.student?.mentorPhone || '+91 63797 62186',
   };
 
-  const parentName = user?.name || activeParentLocal.name || user?.parentName || latestLocalStudent?.parentName || 'Parent';
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // Web Speech API Voice synthesis in Tamil or English
-  const handleVoiceNarration = () => {
+  // Stop audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const parentProfile = resolveStudentParent({
+    name: user?.name,
+    parentName: user?.parentName || activeParentLocal.name,
+    studentName: student.name,
+    rollNumber: student.rollNumber
+  });
+  const rawParent = user?.name || activeParentLocal.name || user?.parentName || latestLocalStudent?.parentName || parentProfile.name || 'Parent';
+  const parentName = rawParent && rawParent !== 'Parent' && rawParent !== 'Parent Contact' ? rawParent : parentProfile.name;
+
+  const fallbackWebSpeech = (text: string, lang: SupportedLang) => {
     if (!('speechSynthesis' in window)) {
-      alert('Text-to-speech is not supported in this browser.');
+      setIsSpeaking(false);
       return;
     }
-
-    if (isSpeaking) {
+    try {
       window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = lang === 'ta' ? 0.85 : 0.95;
+      utterance.pitch = 1.0;
+      utterance.lang = lang === 'ta' ? 'ta-IN' : 'en-US';
+
+      const voices = window.speechSynthesis.getVoices();
+      if (lang === 'ta') {
+        const tamilVoice = voices.find(
+          (v) => v.lang === 'ta-IN' || v.lang.toLowerCase().startsWith('ta') || v.name.toLowerCase().includes('tamil')
+        );
+        if (tamilVoice) {
+          utterance.voice = tamilVoice;
+        } else {
+          // Strictly avoid fallback to default OS English voice when user requested Tamil
+          console.warn('No native Tamil voice pack detected in browser speechSynthesis. English voice suppressed.');
+          setIsSpeaking(false);
+          return;
+        }
+      } else {
+        const englishVoice = voices.find(
+          (v) => v.lang === 'en-US' || v.lang.startsWith('en-IN') || v.lang.startsWith('en')
+        );
+        if (englishVoice) utterance.voice = englishVoice;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
+    }
+  };
+
+  // High-fidelity Audio Speech delivery in authentic Tamil or English
+  const handleVoiceNarration = () => {
+    // If currently speaking, stop immediately
+    if (isSpeaking) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+        audioPlayerRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setIsSpeaking(false);
       return;
     }
 
-    const testScoreInfo = latestExamReport
-      ? (latestExamReport.score ?? latestExamReport.marksAwarded ?? 40)
-      : 40;
-    const testMaxInfo = latestExamReport
-      ? (latestExamReport.maxScore ?? latestExamReport.totalMarks ?? 50)
-      : 50;
     const testPctInfo = latestExamReport ? (latestExamReport.percentage ?? 80) : 80;
+    const testScoreInfo = latestExamReport ? (latestExamReport.score ?? 40) : 40;
+    const testMaxInfo = latestExamReport ? (latestExamReport.maxScore ?? 50) : 50;
 
     const examScoreTextTa = latestExamReport
       ? `சமீபத்திய தேர்வில் ${testScoreInfo} / ${testMaxInfo} மதிப்பெண்கள், அதாவது ${testPctInfo} சதவீதம் பெற்றுள்ளார்.`
@@ -214,34 +278,57 @@ export const ParentDashboard: React.FC = () => {
       ? `In the latest test, they scored ${testScoreInfo} out of ${testMaxInfo} marks (${testPctInfo}% accuracy).`
       : `Academic performance is on track.`;
 
+    const isGenericStudent = !student.name || student.name.toLowerCase() === 'student' || student.name === 'மாணவர்';
+    const spokenStudentTa = isGenericStudent ? 'உங்கள் குழந்தை' : `${student.name}`;
+    const spokenStudentEn = isGenericStudent ? 'your child' : student.name;
+
+    const isGenericParent = !parentName || parentName.toLowerCase() === 'parent' || parentName === 'Parent Contact';
+    const spokenParentTa = isGenericParent ? 'பெற்றோரே' : `${parentName} அவர்களே`;
+    const spokenParentEn = isGenericParent ? 'Parent' : parentName;
+
     const scriptText = currentLang === 'ta'
-      ? `வணக்கம் ${parentName}. உங்கள் குழந்தை ${student.name} அவர்களின் கல்லூரி வருகைப்பதிவு ${student.attendance} சதவீதம். ${examScoreTextTa} கற்றல் இடைவெளி ${student.learningDebt} புள்ளிகள் மட்டுமே உள்ளது. தொடர்ந்து குழந்தையை ஊக்கப்படுத்துங்கள்.`
-      : `Hello ${parentName}. Your child ${student.name}'s college attendance is ${student.attendance} percent. ${examScoreTextEn} Learning gap is at ${student.learningDebt} points. Please keep encouraging them.`;
+      ? `வணக்கம் ${spokenParentTa}. ${isGenericStudent ? 'உங்கள் குழந்தையின்' : `${spokenStudentTa} அவர்களின்`} கல்லூரி வருகைப்பதிவு ${student.attendance} சதவீதம். ${examScoreTextTa} கற்றல் இடைவெளி ${student.learningDebt} புள்ளிகள் மட்டுமே உள்ளது. தொடர்ந்து குழந்தையை ஊக்கப்படுத்துங்கள்.`
+      : `Hello ${spokenParentEn}. ${isGenericStudent ? "Your child's" : `${spokenStudentEn}'s`} college attendance is ${student.attendance} percent. ${examScoreTextEn} Learning gap is at ${student.learningDebt} points. Please keep encouraging them.`;
 
-    const utterance = new SpeechSynthesisUtterance(scriptText);
-    utterance.rate = 0.88;
-    utterance.pitch = 1.0;
+    setIsSpeaking(true);
 
-    const voices = window.speechSynthesis.getVoices();
-    if (currentLang === 'ta') {
-      utterance.lang = 'ta-IN';
-      const tamilVoice = voices.find(v => v.lang === 'ta-IN' || v.lang.startsWith('ta') || v.name.toLowerCase().includes('tamil'));
-      if (tamilVoice) {
-        utterance.voice = tamilVoice;
+    // Primary: Dedicated /api/parent/tts audio streaming endpoint delivering pure Tamil MP3
+    try {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
       }
-    } else {
-      utterance.lang = 'en-US';
-      const englishVoice = voices.find(v => v.lang === 'en-US' || v.lang.startsWith('en-IN') || v.lang.startsWith('en'));
-      if (englishVoice) {
-        utterance.voice = englishVoice;
+
+      const rawBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
+      const apiBase = rawBase ? (rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`) : '/api';
+      const audioUrl = `${apiBase}/parent/tts?text=${encodeURIComponent(scriptText)}&lang=${currentLang}`;
+
+      const audio = new Audio(audioUrl);
+      audioPlayerRef.current = audio;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioPlayerRef.current = null;
+      };
+
+      audio.onerror = (e) => {
+        console.warn('Audio streaming notice, falling back to Web Speech synthesis:', e);
+        audioPlayerRef.current = null;
+        fallbackWebSpeech(scriptText, currentLang);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((playErr) => {
+          console.warn('Audio auto-play notice, fallback to Web Speech:', playErr);
+          audioPlayerRef.current = null;
+          fallbackWebSpeech(scriptText, currentLang);
+        });
       }
+    } catch (err) {
+      console.warn('Audio initialization notice, fallback to Web Speech:', err);
+      fallbackWebSpeech(scriptText, currentLang);
     }
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
   };
 
   const trafficLight = data?.trafficLight || {

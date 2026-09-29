@@ -1,7 +1,7 @@
 // Centralized Fetch API Client for LearnDebt AI Backend
 
 const customApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '');
-const API_BASE_URL = customApiUrl ? (customApiUrl.endsWith('/api') ? customApiUrl : `${customApiUrl}/api`) : '/api';
+export const API_BASE_URL = customApiUrl ? (customApiUrl.endsWith('/api') ? customApiUrl : `${customApiUrl}/api`) : '/api';
 
 export async function apiRequest<T = any>(
   endpoint: string,

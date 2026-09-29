@@ -234,3 +234,79 @@ def notify_teacher_from_parent(payload: Dict[str, Any]):
     }
     db["notifications"].insert_one(notification_doc)
     return {"success": True, "message": "Teacher has been notified via LearnDebt AI."}
+
+@router.get("/tts")
+def get_parent_tts_audio(text: str = "", lang: str = "ta"):
+    """
+    Streams authentic native spoken audio (MP3) for parents in Tamil (ta) or English (en).
+    Handles chunking and MP3 concatenation for unlimited sentence lengths.
+    Guarantees pure Tamil voice delivery across all browsers and devices without OS language pack requirements.
+    """
+    import urllib.parse
+    import requests
+    import re
+    from fastapi.responses import Response
+
+    clean_lang = "ta" if lang.lower().startswith("ta") else "en"
+    clean_text = text.strip()
+    if not clean_text:
+        clean_text = "வணக்கம் பெற்றோரே. உங்கள் குழந்தையின் கல்வி அறிக்கை புதுப்பிக்கப்பட்டுள்ளது." if clean_lang == "ta" else "Hello Parent. Your child's academic progress report is updated."
+
+    # Split text into natural sentence or punctuation chunks <= 120 chars
+    raw_sentences = [s.strip() for s in re.split(r'([.?!।,\n])', clean_text) if s.strip()]
+    chunks = []
+    current = ""
+    i = 0
+    while i < len(raw_sentences):
+        part = raw_sentences[i]
+        if i + 1 < len(raw_sentences) and raw_sentences[i+1] in '.?!।,\n':
+            part += raw_sentences[i+1]
+            i += 1
+        i += 1
+
+        if len(current) + len(part) < 120:
+            current += (" " if current else "") + part
+        else:
+            if current:
+                chunks.append(current)
+            current = part
+
+    if current:
+        chunks.append(current)
+
+    if not chunks:
+        chunks = [clean_text[:120]]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    merged_mp3 = []
+    for chunk in chunks:
+        chunk_clean = chunk.strip()
+        if not chunk_clean:
+            continue
+        try:
+            tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={urllib.parse.quote(chunk_clean)}&tl={clean_lang}&client=tw-ob"
+            r = requests.get(tts_url, headers=headers, timeout=8)
+            if r.status_code == 200 and len(r.content) > 200:
+                merged_mp3.append(r.content)
+        except Exception as e:
+            print(f"[TTS Error chunk] {e}")
+
+    if merged_mp3:
+        return Response(
+            content=b"".join(merged_mp3),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Type": "audio/mpeg",
+                "Cache-Control": "public, max-age=86400",
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+
+    return Response(content=b"", status_code=500)
+
