@@ -17,11 +17,15 @@ import {
   UserCheck,
   CalendarCheck,
   ShieldCheck,
-  GraduationCap
+  GraduationCap,
+  Award,
+  ClipboardCheck,
+  FileText
 } from 'lucide-react';
 import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { parentApi } from '../api/parentApi';
+import { firebaseSync } from '../services/firebase';
 
 type SupportedLang = 'ta' | 'en';
 
@@ -101,6 +105,8 @@ export const ParentDashboard: React.FC = () => {
 
   const t = UI_LANGUAGES[currentLang];
 
+  const [latestExamReport, setLatestExamReport] = useState<any>(null);
+
   const activeParentLocal = (() => {
     try {
       return JSON.parse(localStorage.getItem('learndebt_active_parent') || '{}');
@@ -109,12 +115,25 @@ export const ParentDashboard: React.FC = () => {
     }
   })();
 
+  const fetchLatestExam = async () => {
+    try {
+      const rollNumber = user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || 'AU-2026-0042';
+      const report = await firebaseSync.getLatestStudentTest(rollNumber);
+      setLatestExamReport(report);
+    } catch (e) {
+      console.warn('Could not load latest student exam for parent:', e);
+    }
+  };
+
   const fetchDashboard = async () => {
     setLoading(true);
     try {
       const parentId = user?.id || activeParentLocal.id || 'parent_ramesh';
       const rollNumber = user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId;
-      const res = await parentApi.getDashboard(parentId, rollNumber, currentLang);
+      const [res] = await Promise.all([
+        parentApi.getDashboard(parentId, rollNumber, currentLang),
+        fetchLatestExam()
+      ]);
       setData(res);
       if (res.knowledgeTree && res.knowledgeTree.length > 0) {
         setActiveTreeNode(res.knowledgeTree[0]);
@@ -128,6 +147,19 @@ export const ParentDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboard();
+
+    const onTestSubmitted = () => {
+      fetchLatestExam();
+    };
+    window.addEventListener('learndebt_test_submitted', onTestSubmitted);
+    window.addEventListener('storage', onTestSubmitted);
+    const interval = setInterval(fetchLatestExam, 10000); // 10s auto-sync
+
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', onTestSubmitted);
+      window.removeEventListener('storage', onTestSubmitted);
+      clearInterval(interval);
+    };
   }, [user?.id, currentLang]);
 
   // Web Speech API Voice synthesis in Tamil or English
@@ -279,6 +311,118 @@ export const ParentDashboard: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black text-white">{student.overallPerformance}%</span>
           </div>
         </div>
+      </div>
+
+      {/* 0. CHILD'S LATEST EXAMINATION & TEST REPORT CARD (REAL-TIME VISUALIZATION FOR PARENTS) */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 rounded-3xl border border-indigo-500/30 text-white shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
+              <Award className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 block">
+                {currentLang === 'ta' ? 'அதிகாரப்பூர்வ கல்லூரி தேர்வு மதிப்பீடு' : 'Official College Test Assessment'}
+              </span>
+              <h2 className="text-lg sm:text-xl font-black text-white">
+                {currentLang === 'ta' ? 'மாணவரின் சமீபத்திய தேர்வு அறிக்கை' : "Child's Latest Examination Report"}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="text-xs font-bold text-emerald-300">
+              {currentLang === 'ta' ? 'நேரடி ஒத்திசைவு (Live Synced)' : 'Live Synced'}
+            </span>
+          </div>
+        </div>
+
+        {latestExamReport ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Test Name & Subject */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  {currentLang === 'ta' ? 'தேர்வு / பாடம்' : 'Test & Subject'}
+                </span>
+                <h4 className="text-base font-extrabold text-white">
+                  {latestExamReport.testTitle || 'Diagnostic Assessment'}
+                </h4>
+                <p className="text-xs text-indigo-300">
+                  {latestExamReport.department || student.department}
+                </p>
+              </div>
+
+              {/* Marks & Accuracy */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  {currentLang === 'ta' ? 'பெற்ற மதிப்பெண்' : 'Marks Scored'}
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-400">
+                    {latestExamReport.marksAwarded ?? 40}
+                  </span>
+                  <span className="text-sm font-bold text-slate-300">
+                    / {latestExamReport.totalMarks ?? 50} {currentLang === 'ta' ? 'மதிப்பெண்கள்' : 'Marks'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  {currentLang === 'ta' ? 'சராசரி தேர்ச்சி விகிதம்' : 'Accuracy'}: <span className="font-bold text-emerald-300">{latestExamReport.percentage ?? 80}%</span>
+                </p>
+              </div>
+
+              {/* Pass/Fail & Traffic Status */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  {currentLang === 'ta' ? 'தேர்வு முடிவு நிலை' : 'Result Status'}
+                </span>
+                <div>
+                  {(latestExamReport.percentage ?? 0) >= 60 ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {currentLang === 'ta' ? '✓ தேர்ச்சி (Passed)' : 'Passed Successfully'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {currentLang === 'ta' ? '⚠️ பயிற்சி தேவை (Needs Practice)' : 'Needs Extra Practice'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  {(latestExamReport.percentage ?? 0) >= 60
+                    ? (currentLang === 'ta' ? 'ஆசிரியரின் மதிப்பீட்டில் நல்ல மதிப்பெண் பெற்றுள்ளார்.' : 'Good performance validated by faculty assessment.')
+                    : (currentLang === 'ta' ? 'ஆசிரியரிடம் கலந்துரையாடி சந்தேகங்களை தீர்க்கவும்.' : 'Advise student to clarify concepts with mentor.')}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-300">
+                  {currentLang === 'ta' ? 'சரியான விடைகள்' : 'Correct Answers'}: <strong className="text-white">{latestExamReport.correctAnswers ?? 4}</strong> / {latestExamReport.totalQuestions ?? 5}
+                </span>
+              </div>
+              <span className="text-slate-400">
+                {currentLang === 'ta' ? 'தேர்வு எழுதிய நாள்' : 'Date Submitted'}: <strong className="text-slate-200">{new Date(latestExamReport.submittedAt || Date.now()).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong>
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-center space-y-2">
+            <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+            <h4 className="text-sm font-bold text-white">
+              {currentLang === 'ta' ? 'இன்றைய தேர்வு நிலுவையில் உள்ளது' : 'No Recent Exam Taken Today'}
+            </h4>
+            <p className="text-xs text-slate-300 max-w-lg mx-auto">
+              {currentLang === 'ta'
+                ? 'கல்லூரி ஆசிரியர் ஒதுக்கும் தேர்வினை மாணவர் முடித்தவுடன் அவரது மதிப்பெண் விவரம் மற்றும் பகுப்பாய்வு அறிக்கை இங்கு தானாக புதுப்பிக்கப்படும்.'
+                : 'When the student takes an assessment assigned by college faculty, the score report will appear here automatically.'}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 1. ULTRA-INTUITIVE TRAFFIC LIGHT METER (FOR UNEDUCATED / NON-TECHNICAL PARENTS) */}

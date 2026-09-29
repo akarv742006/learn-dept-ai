@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Award,
@@ -14,13 +14,58 @@ import {
   ArrowRight,
   MessageSquare,
   Sparkles,
-  HeartHandshake
+  HeartHandshake,
+  ClipboardCheck,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { firebaseSync } from '../services/firebase';
 
 export const ParentProgress: React.FC = () => {
   const { user } = useAuth();
-  const parentName = user?.name || 'Ramesh Krishnan';
+  const [testHistory, setTestHistory] = useState<any[]>([]);
+
+  const activeParentLocal = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('learndebt_active_parent') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+
+  const studentName = user?.childName || user?.studentName || activeParentLocal.childName || activeParentLocal.studentName || 'Arun Kumar';
+  const rollNumber = user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || 'CS2023-042';
+
+  const loadExamHistory = async () => {
+    try {
+      const subs = await firebaseSync.getSubmissions({ studentId: rollNumber });
+      if (subs && subs.length > 0) {
+        setTestHistory(subs);
+      } else {
+        const latest = await firebaseSync.getLatestStudentTest(rollNumber);
+        if (latest) {
+          setTestHistory([latest]);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load exam history:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadExamHistory();
+
+    const onUpdate = () => loadExamHistory();
+    window.addEventListener('learndebt_test_submitted', onUpdate);
+    window.addEventListener('storage', onUpdate);
+    const interval = setInterval(loadExamHistory, 10000);
+
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', onUpdate);
+      window.removeEventListener('storage', onUpdate);
+      clearInterval(interval);
+    };
+  }, [rollNumber]);
 
   const subjects = [
     { name: 'Database Management Systems (DBMS)', code: 'CS301', score: 76, status: 'கவனம் தேவை (Needs Practice)', color: 'amber', icon: '💾', note: 'தர்க்க கணிதத்தில் 15 நிமிடம் பயிற்சி தேவை' },
@@ -42,7 +87,7 @@ export const ParentProgress: React.FC = () => {
             Child Academic Progress
           </h1>
           <p className="text-xs sm:text-sm text-slate-200 mt-1">
-            Student: <span className="font-bold text-white">Arun Kumar</span> (Roll No: <span className="font-mono text-emerald-300">CS2023-042</span>)
+            Student: <span className="font-bold text-white">{studentName}</span> (Roll No: <span className="font-mono text-emerald-300">{rollNumber}</span>)
           </p>
         </div>
 
@@ -119,6 +164,82 @@ export const ParentProgress: React.FC = () => {
             ✓ 75% கட்டாய வருகைக்கு மேல் உள்ளது (Safe)
           </span>
         </div>
+      </div>
+
+      {/* Official College Exam History & Mark Sheet (தேர்வு முடிவுகள் மற்றும் மதிப்பெண் பட்டியல்) */}
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">
+                கல்லூரி தேர்வு முடிவுகள் மற்றும் மதிப்பெண் பட்டியல்
+              </h3>
+              <p className="text-xs text-slate-500">
+                Official College Assessment & Exam History (Live Synced with Teacher Portal)
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+            {testHistory.length} தேர்வுகள் பதிவு செய்யப்பட்டுள்ளன
+          </span>
+        </div>
+
+        {testHistory.length > 0 ? (
+          <div className="space-y-3">
+            {testHistory.map((sub: any, idx: number) => {
+              const pct = sub.percentage ?? Math.round(((sub.marksAwarded ?? 0) / (sub.totalMarks || 50)) * 100);
+              const isPass = pct >= 50;
+              return (
+                <div
+                  key={sub.id || idx}
+                  className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300">
+                        #{idx + 1}
+                      </span>
+                      <h4 className="font-black text-sm text-slate-900 dark:text-white">
+                        {sub.testTitle || sub.assignmentTitle || 'Diagnostic Assessment'}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      துறை: <strong className="text-slate-700 dark:text-slate-300">{sub.department || 'Computer Science'}</strong> • தேதி: {new Date(sub.submittedAt || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                        {sub.marksAwarded ?? 40} / {sub.totalMarks ?? 50}
+                      </span>
+                      <span className="text-xs text-slate-500 block font-bold">
+                        ({pct}% மதிப்பெண்)
+                      </span>
+                    </div>
+
+                    <span className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 ${
+                      isPass
+                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
+                    }`}>
+                      {isPass ? '✓ தேர்ச்சி (Passed)' : '⚠️ பயிற்சி தேவை'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center space-y-1">
+            <ClipboardCheck className="w-8 h-8 text-slate-400 mx-auto" />
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">தேர்வு முடிவுகள் தயார் நிலையில் உள்ளன</p>
+            <p className="text-[11px] text-slate-500">மாணவர் கல்லூரி ஆசிரியர் ஒதுக்கிய தேர்வை முடித்தவுடன் இங்கே முழு அறிக்கை தோன்றும்.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -233,6 +354,20 @@ export const ParentNotifications: React.FC = () => {
 
 export const ParentProfile: React.FC = () => {
   const { user } = useAuth();
+  const activeParentLocal = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('learndebt_active_parent') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+
+  const parentName = user?.name || activeParentLocal.name || 'Ramesh Krishnan';
+  const parentPhone = user?.phone || user?.parentPhone || activeParentLocal.phone || '+91 98450 12345';
+  const childName = user?.childName || user?.studentName || activeParentLocal.childName || activeParentLocal.studentName || 'Arun Kumar';
+  const childRoll = user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || 'CS2023-042';
+  const childDept = user?.department || activeParentLocal.childDept || 'Computer Science & Engineering';
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans pb-16 px-3 sm:px-6">
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -252,22 +387,22 @@ export const ParentProfile: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Parent Name / பெற்றோர் பெயர்</span>
-            <span className="font-black text-slate-900 dark:text-white text-base">{user?.name || 'Ramesh Krishnan'}</span>
+            <span className="font-black text-slate-900 dark:text-white text-base">{parentName}</span>
           </div>
 
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Registered Mobile / பதிவு செய்யப்பட்ட எண்</span>
-            <span className="font-black text-slate-900 dark:text-white text-base">+91 98450 12345</span>
+            <span className="font-black text-slate-900 dark:text-white text-base">{parentPhone}</span>
           </div>
 
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Linked Child / இணைக்கப்பட்ட மாணவர்</span>
-            <span className="font-black text-slate-900 dark:text-white text-base">Arun Kumar (CS2023-042)</span>
+            <span className="font-black text-slate-900 dark:text-white text-base">{childName} ({childRoll})</span>
           </div>
 
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Department & Year / துறை & ஆண்டு</span>
-            <span className="font-black text-slate-900 dark:text-white text-base">Computer Science • 3rd Year</span>
+            <span className="font-black text-slate-900 dark:text-white text-base">{childDept} • 3rd Year</span>
           </div>
         </div>
       </div>

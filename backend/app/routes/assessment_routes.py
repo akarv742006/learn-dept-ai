@@ -91,6 +91,23 @@ def staff_create_assignment(req: StaffAssignmentCreateRequest):
     }
     db["department_assignments"].insert_one(assignment_doc)
 
+    # Sync to Firebase Realtime Database
+    try:
+        from app.services.firebase_service import _put_to_firebase
+        sync_assign = dict(assignment_doc)
+        sync_assign["_id"] = str(asm_id)
+        sync_assign["id"] = str(asm_id)
+        # Ensure questions list is JSON serializable
+        clean_q = []
+        for q in embedded_questions:
+            cq = dict(q)
+            cq["_id"] = str(cq.get("_id", cq.get("id", "")))
+            clean_q.append(cq)
+        sync_assign["questions"] = clean_q
+        _put_to_firebase(f"assignments/{asm_id}", sync_assign)
+    except Exception as e:
+        pass
+
     # Send Notification to Department Students
     notif = {
         "_id": f"notif_{int(time.time() * 1000)}",
@@ -465,6 +482,17 @@ def submit_assessment(assessment_id: str, req: AssessmentSubmitRequest):
     }
     db["assignment_submissions"].insert_one(submission_doc)
 
+    # Sync submission to Firebase Realtime Database for instant Teacher & Parent visibility
+    try:
+        from app.services.firebase_service import _put_to_firebase
+        sync_sub = dict(submission_doc)
+        sync_sub["_id"] = str(submission_id)
+        sync_sub["id"] = str(submission_id)
+        _put_to_firebase(f"submissions/{submission_id}", sync_sub)
+        _put_to_firebase(f"students/{student_id}/latestTest", sync_sub)
+    except Exception as e:
+        pass
+
     # If linked to a department assignment, update live stats on assignment
     if assessment.get("assignmentId"):
         aid = assessment.get("assignmentId")
@@ -475,6 +503,11 @@ def submit_assessment(assessment_id: str, req: AssessmentSubmitRequest):
                 {"_id": aid},
                 {"$set": {"submissionsCount": len(all_subs), "averageScore": avg_sc}}
             )
+            try:
+                _put_to_firebase(f"assignments/{aid}/submissionsCount", len(all_subs))
+                _put_to_firebase(f"assignments/{aid}/averageScore", avg_sc)
+            except Exception:
+                pass
 
     # Update assessment record
     db["assessments"].update_one(

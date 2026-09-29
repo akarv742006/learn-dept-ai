@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Flame, ArrowRight, Sparkles, RefreshCw, Lock, Unlock, Bot, BrainCircuit, Target, CheckCircle2, ShieldCheck, X, Receipt, Building2, PhoneCall, MessageCircle, HeartHandshake } from 'lucide-react';
+import { Flame, ArrowRight, Sparkles, RefreshCw, Lock, Unlock, Bot, BrainCircuit, Target, CheckCircle2, ShieldCheck, X, Receipt, Building2, PhoneCall, MessageCircle, HeartHandshake, ClipboardCheck, Award, FileText } from 'lucide-react';
 import { LearningDebtWaterfallCard } from '../components/LearningDebtWaterfallCard';
 import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { studentApi, type StudentDashboardResponse } from '../api/studentApi';
 import { saasApi, type UserSubscriptionState, type PaymentRecord } from '../api/saasApi';
 import { authApi, type CollegeStaffMember } from '../api/authApi';
+import { firebaseSync } from '../services/firebase';
 import { UPIPaymentModal } from '../components/UPIPaymentModal';
 import { SUBSCRIPTION_PLANS, type SubscriptionPlan } from '../data/subscriptionPlans';
 
 export const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [assignedTests, setAssignedTests] = useState<any[]>([]);
+  const [latestReport, setLatestReport] = useState<any>(null);
   const [data, setData] = useState<StudentDashboardResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [subState, setSubState] = useState<UserSubscriptionState | null>(null);
@@ -26,13 +29,28 @@ export const StudentDashboard: React.FC = () => {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
 
+  const fetchTestsAndReports = async () => {
+    try {
+      const dept = user?.department || 'Computer Science';
+      const tests = await firebaseSync.getAssignments(dept);
+      setAssignedTests(tests || []);
+
+      const roll = (user as any)?.rollNumber || user?.id || 'CS2023-042';
+      const report = await firebaseSync.getLatestStudentTest(roll);
+      setLatestReport(report);
+    } catch (e) {
+      console.warn("Could not load faculty tests or report:", e);
+    }
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
       const [res, subRes, staffRes] = await Promise.all([
         studentApi.getDashboard(user?.id || 'student_arun'),
         saasApi.getMySubscription(user?.id || 'student_arun'),
-        authApi.getCollegeStaff(user?.college || 'Anna University').catch(() => ({ success: true, staff: [] }))
+        authApi.getCollegeStaff(user?.college || 'Anna University').catch(() => ({ success: true, staff: [] })),
+        fetchTestsAndReports()
       ]);
       setData(res);
       setSubState(subRes);
@@ -48,7 +66,21 @@ export const StudentDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [user?.id, user?.college]);
+
+    // Listen for real-time exam submissions or local updates
+    const onTestUpdate = () => {
+      fetchTestsAndReports();
+    };
+    window.addEventListener('learndebt_test_submitted', onTestUpdate);
+    window.addEventListener('storage', onTestUpdate);
+    const interval = setInterval(fetchTestsAndReports, 10000); // 10s auto-refresh for newly created tests
+
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', onTestUpdate);
+      window.removeEventListener('storage', onTestUpdate);
+      clearInterval(interval);
+    };
+  }, [user?.id, user?.college, user?.department]);
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'Arun';
   const learningDebt = data?.learningDebt ?? 42;
@@ -177,6 +209,129 @@ export const StudentDashboard: React.FC = () => {
             <span className="text-2xl font-black text-purple-500">{data?.recentAssessments?.length ?? 4} Tests</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-2 font-medium">Non-repeating items</p>
+        </div>
+      </div>
+
+      {/* 2.5 REAL-TIME FACULTY ASSIGNED TESTS & LATEST EXAM REPORT */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: Faculty Assigned Tests */}
+        <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 p-6 rounded-3xl border border-indigo-500/40 text-white shadow-xl flex flex-col justify-between space-y-4 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-base font-black text-white">Faculty Assigned Tests</h3>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+              {assignedTests.length} Available
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Tests published by your department professors in real-time. Complete them to clear prerequisite debt.
+          </p>
+
+          <div className="space-y-2">
+            {assignedTests.length > 0 ? (
+              assignedTests.slice(0, 3).map((test: any, idx: number) => (
+                <div
+                  key={test.id || idx}
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-white truncate">{test.title}</h4>
+                    <p className="text-[11px] text-indigo-300 truncate">
+                      {test.concept || test.department || 'Computer Science'} • {test.totalMarks || 50} Marks
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/student/quiz?testId=${test.id}`)}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-md transition shrink-0 cursor-pointer"
+                  >
+                    Start Test →
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 text-center text-xs text-slate-400">
+                <span>No new pending faculty tests. Ready for smart self-assessment!</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => navigate('/student/quiz')}
+            className="w-full py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <span>View All Assessments & Quizzes</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Card 2: Latest Test Mark Sheet & Score Report */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Latest Exam Mark Sheet</h3>
+            </div>
+            {latestReport ? (
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                (latestReport.percentage ?? 0) >= 60
+                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
+              }`}>
+                {(latestReport.percentage ?? 0) >= 60 ? 'PASSED ✅' : 'NEEDS PRACTICE ⚠️'}
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                Ready for Test
+              </span>
+            )}
+          </div>
+
+          {latestReport ? (
+            <div className="space-y-3">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">{latestReport.testTitle || 'Diagnostic Assessment'}</h4>
+                  <p className="text-[11px] text-slate-500">{latestReport.department || 'Computer Science'} • {new Date(latestReport.submittedAt || Date.now()).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                    {latestReport.marksAwarded ?? 40} / {latestReport.totalMarks ?? 50}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold block">
+                    ({latestReport.percentage ?? 80}% Accuracy)
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Correct Answers</span>
+                  <span className="font-extrabold">{latestReport.correctAnswers ?? 4} Questions</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Total Evaluated</span>
+                  <span className="font-extrabold">{latestReport.totalQuestions ?? 5} Questions</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-1">
+              <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No test taken today</p>
+              <p className="text-[11px] text-slate-500">Take an assessment above to generate your live report card.</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => navigate('/student/quiz')}
+            className="w-full py-2.5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/60 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+          >
+            <span>Open Exam Center & Solution Review</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
