@@ -1,21 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, RefreshCw, Users, AlertTriangle } from 'lucide-react';
+import { Sparkles, ArrowRight, RefreshCw, Users, AlertTriangle, Award, CheckCircle2, Clock, FileCheck } from 'lucide-react';
 import { RiskBadge } from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import { teacherApi } from '../api/teacherApi';
+import { firebaseSync } from '../services/firebase';
 
 export const TeacherDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
+  const [liveStudents, setLiveStudents] = useState<any[]>([]);
+  const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchDashboard = async () => {
     setLoading(true);
     try {
-      const res = await teacherApi.getDashboard();
-      setData(res);
+      const [res, students, subs] = await Promise.allSettled([
+        teacherApi.getDashboard().catch(() => null),
+        firebaseSync.getStudents(user?.department),
+        firebaseSync.getSubmissions({ department: user?.department })
+      ]);
+
+      if (res.status === 'fulfilled' && res.value) {
+        setData(res.value);
+      }
+      if (students.status === 'fulfilled' && Array.isArray(students.value)) {
+        setLiveStudents(students.value);
+      }
+      if (subs.status === 'fulfilled' && Array.isArray(subs.value)) {
+        setRecentSubmissions(subs.value);
+      }
     } catch (e) {
       console.warn("Error fetching teacher dashboard:", e);
     } finally {
@@ -25,20 +41,42 @@ export const TeacherDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
 
-  const overview = data?.classOverview || {
-    totalStudents: 4,
-    avgLearningDebt: 42,
-    highRiskCount: 1,
-    mediumRiskCount: 2,
-    lowRiskCount: 1,
-    atRiskStudentsCount: 3
-  };
+    const onTestUpdate = () => {
+      fetchDashboard();
+    };
+    window.addEventListener('learndebt_test_submitted', onTestUpdate);
+    window.addEventListener('storage', onTestUpdate);
+    const interval = setInterval(fetchDashboard, 8000);
 
-  const studentsList = data?.students || [
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', onTestUpdate);
+      window.removeEventListener('storage', onTestUpdate);
+      clearInterval(interval);
+    };
+  }, [user?.department]);
+
+  const studentsList = liveStudents.length > 0 ? liveStudents : (data?.students || [
     { id: 'student_arun', name: 'Arun Kumar', rollNumber: 'CS2023-042', department: 'Computer Science', year: '3rd Year', overallPerformance: 78, learningDebt: 42, riskLevel: 'Medium' }
-  ];
+  ]);
+
+  // Compute live overview metrics
+  const totalStudents = studentsList.length;
+  const avgLearningDebt = totalStudents > 0
+    ? Math.round(studentsList.reduce((acc: number, s: any) => acc + (Number(s.learningDebt) || 40), 0) / totalStudents)
+    : 42;
+  const highRiskCount = studentsList.filter((s: any) => (s.riskLevel || '').toLowerCase() === 'high' || (s.learningDebt || 0) > 50).length;
+  const mediumRiskCount = studentsList.filter((s: any) => (s.riskLevel || '').toLowerCase() === 'medium' || ((s.learningDebt || 0) >= 25 && (s.learningDebt || 0) <= 50)).length;
+  const lowRiskCount = studentsList.filter((s: any) => (s.riskLevel || '').toLowerCase() === 'low' || (s.learningDebt || 0) < 25).length;
+
+  const overview = {
+    totalStudents,
+    avgLearningDebt,
+    highRiskCount,
+    mediumRiskCount,
+    lowRiskCount,
+    atRiskStudentsCount: highRiskCount + mediumRiskCount
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
@@ -154,6 +192,75 @@ export const TeacherDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Live Student Test Submissions & Staff Analysis */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-emerald-500" />
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Live Student Test Submissions & Staff Analysis
+              </h2>
+              <p className="text-[11px] text-slate-500">Real-time gradebook sync across Student, Teacher, and Parent portals</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+            {recentSubmissions.length} Evaluated Tests
+          </span>
+        </div>
+
+        {recentSubmissions.length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+            No recent student submissions yet. As students take department tests, marks and prerequisite recovery metrics will update here live.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recentSubmissions.slice(0, 6).map((sub: any) => {
+              const isPass = sub.passed || sub.percentage >= 50;
+              return (
+                <div
+                  key={sub._id || sub.id}
+                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 dark:text-white truncate max-w-[160px]">
+                        {sub.studentName}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                        isPass ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                      }`}>
+                        {isPass ? 'PASSED ✅' : 'NEEDS PRACTICE ⚠️'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold truncate">
+                      {sub.assignmentTitle}
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      {sub.department || user?.department} • {new Date(sub.submittedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-base font-black text-slate-900 dark:text-white">
+                        {sub.score} <span className="text-[10px] text-slate-400 font-normal">/ {sub.maxScore || 50}</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500 ml-1.5">
+                        ({sub.percentage}%)
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-semibold">
+                      <Clock className="w-3 h-3" /> {Math.round((sub.timeTaken || 120) / 60)}m
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

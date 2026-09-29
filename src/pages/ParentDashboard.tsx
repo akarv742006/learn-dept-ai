@@ -162,6 +162,29 @@ export const ParentDashboard: React.FC = () => {
     };
   }, [user?.id, currentLang]);
 
+  const latestLocalStudent = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+    } catch {
+      return null;
+    }
+  })();
+
+  const student = {
+    name: user?.childName || user?.studentName || activeParentLocal.childName || activeParentLocal.studentName || latestLocalStudent?.name || latestExamReport?.studentName || 'Student',
+    rollNumber: user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || latestLocalStudent?.rollNumber || latestExamReport?.studentId || 'AU-2026-0042',
+    department: user?.department || activeParentLocal.childDept || latestLocalStudent?.department || latestExamReport?.department || 'Computer Science & Engineering',
+    year: user?.year || activeParentLocal.year || latestLocalStudent?.year || '3rd Year',
+    overallPerformance: latestExamReport?.percentage ?? (latestLocalStudent?.overallPerformance ?? 82),
+    learningDebt: latestExamReport ? Math.max(10, Math.min(85, Math.round(55 - ((latestExamReport.percentage ?? 80) * 0.45)))) : (latestLocalStudent?.learningDebt ?? 38),
+    riskLevel: data?.student?.riskLevel || 'Moderate',
+    attendance: data?.student?.attendance ?? 94,
+    mentorTeacher: data?.student?.mentorTeacher || 'Dr. Rajesh Sharma (Head of Dept)',
+    mentorPhone: data?.student?.mentorPhone || '+91 63797 62186',
+  };
+
+  const parentName = user?.name || activeParentLocal.name || user?.parentName || latestLocalStudent?.parentName || 'Parent';
+
   // Web Speech API Voice synthesis in Tamil or English
   const handleVoiceNarration = () => {
     if (!('speechSynthesis' in window)) {
@@ -175,16 +198,44 @@ export const ParentDashboard: React.FC = () => {
       return;
     }
 
-    const scriptText = data?.audioVoiceScript || (
-      currentLang === 'ta'
-        ? `வணக்கம் ${parentName}. உங்கள் குழந்தை ${student.name} கல்லூரி வருகை மற்றும் படிப்பு நிலை சீராக உள்ளது.`
-        : `Hello ${parentName}. Your child ${student.name} is progressing steadily in college.`
-    );
+    const testScoreInfo = latestExamReport
+      ? (latestExamReport.score ?? latestExamReport.marksAwarded ?? 40)
+      : 40;
+    const testMaxInfo = latestExamReport
+      ? (latestExamReport.maxScore ?? latestExamReport.totalMarks ?? 50)
+      : 50;
+    const testPctInfo = latestExamReport ? (latestExamReport.percentage ?? 80) : 80;
+
+    const examScoreTextTa = latestExamReport
+      ? `சமீபத்திய தேர்வில் ${testScoreInfo} / ${testMaxInfo} மதிப்பெண்கள், அதாவது ${testPctInfo} சதவீதம் பெற்றுள்ளார்.`
+      : `படிப்பு நிலை சீராக உள்ளது.`;
+
+    const examScoreTextEn = latestExamReport
+      ? `In the latest test, they scored ${testScoreInfo} out of ${testMaxInfo} marks (${testPctInfo}% accuracy).`
+      : `Academic performance is on track.`;
+
+    const scriptText = currentLang === 'ta'
+      ? `வணக்கம் ${parentName}. உங்கள் குழந்தை ${student.name} அவர்களின் கல்லூரி வருகைப்பதிவு ${student.attendance} சதவீதம். ${examScoreTextTa} கற்றல் இடைவெளி ${student.learningDebt} புள்ளிகள் மட்டுமே உள்ளது. தொடர்ந்து குழந்தையை ஊக்கப்படுத்துங்கள்.`
+      : `Hello ${parentName}. Your child ${student.name}'s college attendance is ${student.attendance} percent. ${examScoreTextEn} Learning gap is at ${student.learningDebt} points. Please keep encouraging them.`;
 
     const utterance = new SpeechSynthesisUtterance(scriptText);
-    utterance.lang = currentLang === 'ta' ? 'ta-IN' : 'en-US';
-    utterance.rate = 0.9;
+    utterance.rate = 0.88;
     utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (currentLang === 'ta') {
+      utterance.lang = 'ta-IN';
+      const tamilVoice = voices.find(v => v.lang === 'ta-IN' || v.lang.startsWith('ta') || v.name.toLowerCase().includes('tamil'));
+      if (tamilVoice) {
+        utterance.voice = tamilVoice;
+      }
+    } else {
+      utterance.lang = 'en-US';
+      const englishVoice = voices.find(v => v.lang === 'en-US' || v.lang.startsWith('en-IN') || v.lang.startsWith('en'));
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+    }
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -193,20 +244,6 @@ export const ParentDashboard: React.FC = () => {
     window.speechSynthesis.speak(utterance);
   };
 
-  const student = {
-    name: user?.childName || user?.studentName || activeParentLocal.childName || activeParentLocal.studentName || data?.student?.name || 'Student',
-    rollNumber: user?.childRollNo || user?.linkedStudentId || activeParentLocal.childRollNo || activeParentLocal.linkedStudentId || data?.student?.rollNumber || 'AU-2026-0042',
-    department: user?.department || activeParentLocal.childDept || data?.student?.department || 'Computer Science & Engineering',
-    year: user?.year || activeParentLocal.year || data?.student?.year || '3rd Year',
-    overallPerformance: data?.student?.overallPerformance ?? 82,
-    learningDebt: data?.student?.learningDebt ?? 38,
-    riskLevel: data?.student?.riskLevel || 'Moderate',
-    attendance: data?.student?.attendance ?? 94,
-    mentorTeacher: data?.student?.mentorTeacher || 'Dr. Rajesh Sharma (Head of Dept)',
-    mentorPhone: data?.student?.mentorPhone || '+91 63797 62186',
-  };
-
-  const parentName = user?.name || activeParentLocal.name || data?.parent?.name || 'Ramesh Krishnan';
   const trafficLight = data?.trafficLight || {
     color: 'RED',
     emoji: '😟',
@@ -347,7 +384,7 @@ export const ParentDashboard: React.FC = () => {
                   {currentLang === 'ta' ? 'தேர்வு / பாடம்' : 'Test & Subject'}
                 </span>
                 <h4 className="text-base font-extrabold text-white">
-                  {latestExamReport.testTitle || 'Diagnostic Assessment'}
+                  {latestExamReport.assignmentTitle || latestExamReport.testTitle || 'Diagnostic Assessment'}
                 </h4>
                 <p className="text-xs text-indigo-300">
                   {latestExamReport.department || student.department}
@@ -361,10 +398,10 @@ export const ParentDashboard: React.FC = () => {
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl sm:text-3xl font-black text-emerald-400">
-                    {latestExamReport.marksAwarded ?? 40}
+                    {latestExamReport.score ?? latestExamReport.marksAwarded ?? 40}
                   </span>
                   <span className="text-sm font-bold text-slate-300">
-                    / {latestExamReport.totalMarks ?? 50} {currentLang === 'ta' ? 'மதிப்பெண்கள்' : 'Marks'}
+                    / {latestExamReport.maxScore ?? latestExamReport.totalMarks ?? 50} {currentLang === 'ta' ? 'மதிப்பெண்கள்' : 'Marks'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300">

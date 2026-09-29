@@ -150,6 +150,19 @@ export const TeacherAssessments: React.FC = () => {
   useEffect(() => {
     loadData();
     loadCohortWeaknesses(selectedDept);
+
+    const onTestUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('learndebt_test_submitted', onTestUpdate);
+    window.addEventListener('storage', onTestUpdate);
+    const interval = setInterval(loadData, 8000);
+
+    return () => {
+      window.removeEventListener('learndebt_test_submitted', onTestUpdate);
+      window.removeEventListener('storage', onTestUpdate);
+      clearInterval(interval);
+    };
   }, [selectedDept]);
 
   // AI Weakness Question Generator Trigger

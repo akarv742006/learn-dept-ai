@@ -473,6 +473,97 @@ class FirebaseSyncService {
   }
 
   /**
+   * Get all live students from Firebase RTDB and localStorage merged with baseline roster
+   */
+  async getStudents(department?: string): Promise<any[]> {
+    const BASE_STUDENTS = [
+      { id: 'student_arun', name: 'Arun Kumar', rollNumber: 'CS2023-042', email: 'arun@student.edu', department: 'Computer Science', year: '3rd Year', overallPerformance: 78, learningDebt: 42, riskLevel: 'Medium', attendance: 92, parentName: 'Ramesh Krishnan', parentPhone: '+91 63797 62186', linkedParentName: 'Ramesh Krishnan', linkedParentPhone: '+91 63797 62186' },
+      { id: 'student_priya', name: 'Priya Patel', rollNumber: 'AI2023-018', email: 'priya@student.edu', department: 'Data Science & Artificial Intelligence', year: '2nd Year', overallPerformance: 85, learningDebt: 28, riskLevel: 'Low', attendance: 96, parentName: 'Meenakshi Sundaram', parentPhone: '+91 63797 62186', linkedParentName: 'Meenakshi Sundaram', linkedParentPhone: '+91 63797 62186' },
+      { id: 'student_rahul', name: 'Rahul Verma', rollNumber: 'IT2023-055', email: 'rahul@student.edu', department: 'Information Technology', year: '4th Year', overallPerformance: 62, learningDebt: 58, riskLevel: 'High', attendance: 84, parentName: 'Karthik Raja', parentPhone: '+91 63797 62186', linkedParentName: 'Karthik Raja', linkedParentPhone: '+91 63797 62186' },
+      { id: 'student_deepa', name: 'Deepa Subramanian', rollNumber: 'EC2023-031', email: 'deepa@student.edu', department: 'Electronics & Communication', year: '3rd Year', overallPerformance: 88, learningDebt: 22, riskLevel: 'Low', attendance: 98, parentName: 'Subramanian S', parentPhone: '+91 63797 62186', linkedParentName: 'Subramanian S', linkedParentPhone: '+91 63797 62186' }
+    ];
+
+    let fbStudents: any[] = [];
+    try {
+      const [resS, resDir, resLogins] = await Promise.allSettled([
+        fetch(`${this.baseUrl}/students.json`),
+        fetch(`${this.baseUrl}/directory/students.json`),
+        fetch(`${this.baseUrl}/logins.json`)
+      ]);
+
+      if (resS.status === 'fulfilled' && resS.value.ok) {
+        const data = await resS.value.json();
+        if (data && typeof data === 'object') {
+          fbStudents.push(...Object.values(data));
+        }
+      }
+      if (resDir.status === 'fulfilled' && resDir.value.ok) {
+        const data = await resDir.value.json();
+        if (data && typeof data === 'object') {
+          fbStudents.push(...Object.values(data));
+        }
+      }
+      if (resLogins.status === 'fulfilled' && resLogins.value.ok) {
+        const data = await resLogins.value.json();
+        if (data && typeof data === 'object') {
+          const studentLogins = Object.values(data).filter((l: any) => (l.role || '').toLowerCase() === 'student');
+          fbStudents.push(...studentLogins);
+        }
+      }
+    } catch (e) {
+      console.warn('[Firebase] Students fetch notice:', e);
+    }
+
+    let localStudents: any[] = [];
+    try {
+      const recentLogins = JSON.parse(localStorage.getItem('learndebt_recent_logins') || '[]');
+      const studentLogins = recentLogins.filter((l: any) => (l.role || '').toLowerCase() === 'student');
+      localStudents.push(...studentLogins);
+
+      const latestStudent = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+      if (latestStudent) {
+        localStudents.push(latestStudent);
+      }
+    } catch {}
+
+    const map = new Map<string, any>();
+    [...localStudents, ...fbStudents, ...BASE_STUDENTS].forEach((s) => {
+      const key = (s.rollNumber || s.studentId || s.email || s.name || '').toLowerCase().trim();
+      if (key && !map.has(key)) {
+        map.set(key, {
+          id: s.id || s.studentId || s.rollNumber || key,
+          name: s.name || 'Student',
+          rollNumber: s.rollNumber || s.studentId || 'AU-2026',
+          email: s.email || `${(s.name || 'student').toLowerCase().replace(/\s+/g, '')}@student.edu`,
+          department: s.department || 'Computer Science',
+          year: s.year || '3rd Year',
+          overallPerformance: s.overallPerformance ?? 78,
+          learningDebt: s.learningDebt ?? 42,
+          riskLevel: s.riskLevel || ((s.learningDebt ?? 42) > 50 ? 'High' : ((s.learningDebt ?? 42) > 25 ? 'Medium' : 'Low')),
+          attendance: s.attendance ?? 92,
+          parentName: s.parentName || s.linkedParentName || 'Parent Contact',
+          parentPhone: s.parentPhone || s.linkedParentPhone || '+91 63797 62186',
+          linkedParentName: s.parentName || s.linkedParentName || 'Parent Contact',
+          linkedParentPhone: s.parentPhone || s.linkedParentPhone || '+91 63797 62186',
+          status: s.status || 'Active',
+          lastActive: s.lastActive || 'Recently',
+        });
+      }
+    });
+
+    let result = Array.from(map.values());
+    if (department && department !== 'All' && !department.includes('All')) {
+      const normDept = department.toLowerCase().trim();
+      result = result.filter(
+        (s) =>
+          (s.department || '').toLowerCase().includes(normDept) ||
+          normDept.includes((s.department || '').toLowerCase())
+      );
+    }
+    return result;
+  }
+
+  /**
    * Record a student exam/test submission into Firebase RTDB & localStorage
    */
   async recordSubmission(sub: any): Promise<boolean> {
@@ -502,11 +593,19 @@ class FirebaseSyncService {
 
     const studentKey = (cleanSub.studentId || cleanSub.studentEmail.split('@')[0]).replace(/[^a-zA-Z0-9_-]/g, '_');
 
-    // 1. Write to top-level /submissions/{subId}
-    await this.put(`submissions/${subId}`, cleanSub);
+    // 2. Compute dynamic learning debt and risk level
+    const newDebt = Math.max(10, Math.min(85, Math.round(55 - ((cleanSub.percentage ?? 50) * 0.45))));
+    const newRisk = newDebt > 50 ? 'High' : (newDebt > 25 ? 'Medium' : 'Low');
 
-    // 2. Update student node with latest test report
-    await this.put(`students/${studentKey}/latestTest`, cleanSub);
+    // 1. Write to top-level /submissions/{subId} and update student nodes in RTDB
+    await Promise.allSettled([
+      this.put(`submissions/${subId}`, cleanSub),
+      this.put(`students/${studentKey}/latestTest`, cleanSub),
+      this.put(`students/${studentKey}/learningDebt`, newDebt),
+      this.put(`students/${studentKey}/overallPerformance`, cleanSub.percentage),
+      this.put(`students/${studentKey}/riskLevel`, newRisk),
+      this.put(`reports/${subId}`, cleanSub),
+    ]);
 
     // 3. Write to localStorage
     try {
@@ -514,8 +613,18 @@ class FirebaseSyncService {
       const filtered = stored.filter((s: any) => s._id !== subId && s.id !== subId);
       localStorage.setItem('learndebt_submissions', JSON.stringify([cleanSub, ...filtered]));
       localStorage.setItem('learndebt_latest_submission', JSON.stringify(cleanSub));
+
+      const latestStudent = JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null');
+      if (latestStudent) {
+        latestStudent.learningDebt = newDebt;
+        latestStudent.overallPerformance = cleanSub.percentage;
+        latestStudent.riskLevel = newRisk;
+        latestStudent.latestTest = cleanSub;
+        localStorage.setItem('learndebt_latest_student', JSON.stringify(latestStudent));
+      }
+
       // Dispatch browser custom event so all active components in this tab or window update live
-      window.dispatchEvent(new CustomEvent('learndebt_test_submitted', { detail: cleanSub }));
+      window.dispatchEvent(new CustomEvent('learndebt_test_submitted', { detail: { ...cleanSub, learningDebt: newDebt, riskLevel: newRisk } }));
     } catch {}
 
     console.log(`[Firebase] Recorded submission for ${cleanSub.studentName} (${cleanSub.score}/${cleanSub.maxScore}) under /submissions/${subId}`);
@@ -588,15 +697,32 @@ class FirebaseSyncService {
       const latest = localStorage.getItem('learndebt_latest_submission');
       if (latest) {
         const parsed = JSON.parse(latest);
-        if (!studentIdentifier || parsed.studentId === studentIdentifier || parsed.studentEmail?.includes(studentIdentifier)) {
+        if (
+          !studentIdentifier ||
+          parsed.studentId === studentIdentifier ||
+          parsed.studentEmail?.toLowerCase().includes(studentIdentifier.toLowerCase()) ||
+          studentIdentifier.toLowerCase().includes(parsed.studentId?.toLowerCase() || '') ||
+          (parsed.studentName && studentIdentifier.toLowerCase().includes(parsed.studentName.toLowerCase()))
+        ) {
           return parsed;
         }
       }
     } catch {}
 
     // 2. Query Firebase submissions
-    const subs = await this.getSubmissions(studentIdentifier ? { studentId: studentIdentifier } : undefined);
+    const subs = await this.getSubmissions();
     if (subs.length > 0) {
+      if (studentIdentifier) {
+        const target = studentIdentifier.toLowerCase();
+        const matched = subs.find(
+          (s) =>
+            s.studentId?.toLowerCase() === target ||
+            s.studentEmail?.toLowerCase().includes(target) ||
+            target.includes(s.studentId?.toLowerCase() || '') ||
+            (s.studentName && s.studentName.toLowerCase().includes(target))
+        );
+        if (matched) return matched;
+      }
       return subs[0];
     }
 

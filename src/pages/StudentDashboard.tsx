@@ -88,9 +88,16 @@ export const StudentDashboard: React.FC = () => {
   }, [user?.id, user?.college, user?.department]);
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'Arun';
-  const learningDebt = data?.learningDebt ?? 42;
-  const overallPerformance = data?.overallPerformance ?? 78;
-  const riskLevel = data?.riskLevel ?? 'Medium';
+
+  // Live dynamic learning debt and performance calculation based on latest test results
+  const latestPct = latestReport ? (latestReport.percentage ?? 80) : null;
+  const learningDebt = latestPct !== null
+    ? Math.max(10, Math.min(85, Math.round(55 - (latestPct * 0.45))))
+    : (data?.learningDebt ?? 42);
+  const overallPerformance = latestPct !== null
+    ? Math.round(((data?.overallPerformance ?? 78) + latestPct) / 2)
+    : (data?.overallPerformance ?? 78);
+  const riskLevel = learningDebt > 50 ? 'High' : (learningDebt > 25 ? 'Medium' : 'Low');
   const isPremium = subState?.is_premium ?? false;
 
   const handleFeatureClick = (featureTitle: string) => {
@@ -119,18 +126,31 @@ export const StudentDashboard: React.FC = () => {
     fetchPaymentHistory();
   };
 
-  // Format trend data from learning debt history snapshots
-  const trendData = data?.debtHistory && data.debtHistory.length > 0
+  // Format trend data from learning debt history snapshots and latest test
+  const baseHistory = data?.debtHistory && data.debtHistory.length > 0
     ? data.debtHistory.map((item: any, idx: number) => ({
         week: `T${idx + 1}`,
-        performance: 75 + (idx * 2),
+        performance: 70 + (idx * 3),
         debt: item.score ?? 40
       }))
     : [
-        { week: 'T1', performance: 72, debt: 68 },
-        { week: 'T2', performance: 74, debt: 61 },
-        { week: 'T3', performance: 76, debt: 52 },
-        { week: 'T4', performance: 78, debt: 42 },
+        { week: 'T1', performance: 68, debt: 65 },
+        { week: 'T2', performance: 72, debt: 58 },
+        { week: 'T3', performance: 75, debt: 49 },
+      ];
+
+  const trendData = latestReport
+    ? [
+        ...baseHistory.slice(-3),
+        {
+          week: 'Latest Exam',
+          performance: latestReport.percentage ?? 80,
+          debt: learningDebt
+        }
+      ]
+    : [
+        ...baseHistory,
+        { week: 'Current', performance: overallPerformance, debt: learningDebt }
       ];
 
   const studentProPlan = SUBSCRIPTION_PLANS.find((p: SubscriptionPlan) => p.id === 'student-pro') || {

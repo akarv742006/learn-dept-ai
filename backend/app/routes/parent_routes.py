@@ -152,11 +152,19 @@ def get_parent_dashboard(
     ]
 
     lang_dict = MULTILINGUAL_EXPLANATIONS.get(lang, MULTILINGUAL_EXPLANATIONS["ta"])
-    audio_script = (
-        f"{lang_dict['greeting']} {student_user.get('name', 'மாணவர்')} அவர்களின் கல்லூரி வருகைப்பதிவு {attendance} சதவீதம். "
-        f"மொத்த கல்வி மதிப்பீடு {overall} சதவீதம். "
-        f"{lang_dict['status_warning'] if debt > 40 else lang_dict['status_safe']} {lang_dict['recommendation']}"
-    )
+    student_name = student_user.get('name', 'மாணவர்' if is_tamil else 'your child')
+    if is_tamil:
+        audio_script = (
+            f"{lang_dict['greeting']} {student_name} அவர்களின் கல்லூரி வருகைப்பதிவு {attendance} சதவீதம். "
+            f"மொத்த கல்வி மதிப்பீடு {overall} சதவீதம். "
+            f"{lang_dict['status_warning'] if debt > 40 else lang_dict['status_safe']} {lang_dict['recommendation']}"
+        )
+    else:
+        audio_script = (
+            f"{lang_dict['greeting']} {student_name}'s college attendance is {attendance} percent. "
+            f"Overall academic evaluation is {overall} percent. "
+            f"{lang_dict['status_warning'] if debt > 40 else lang_dict['status_safe']} {lang_dict['recommendation']}"
+        )
 
     return {
         "parent": {

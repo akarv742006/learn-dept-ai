@@ -250,46 +250,93 @@ export const LoginPage: React.FC = () => {
       const cleanRoll = parentChildRoll.trim().toLowerCase();
       const enteredPin = parentPin.trim();
 
-      // Find matching parent persona from registered and sample parents
-      let matched: ParentPersona | undefined;
+      // Collect all registered parents from localStorage
+      let allParentsList: any[] = [];
+      try {
+        const latestP = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+        if (latestP) allParentsList.push(latestP);
+        const registeredParents = JSON.parse(localStorage.getItem('learndebt_registered_parents') || '[]');
+        allParentsList.push(...registeredParents);
+      } catch {}
+      allParentsList.push(...parentPersonas);
+
+      // De-duplicate candidates while preserving registration precedence
+      const map = new Map<string, any>();
+      allParentsList.forEach((p) => {
+        const key = (p.id || p.phone || p.name).toLowerCase();
+        if (!map.has(key)) map.set(key, p);
+      });
+      const candidates = Array.from(map.values());
+
+      let matched: any = undefined;
 
       if (parentLoginTab === 'pin') {
-        // Matched by entered pass key (PIN) and/or mobile/email
-        matched = parentPersonas.find((p) => {
-          const matchPin = p.pin === enteredPin;
-          const matchEmailOrPhone = cleanEmail && (
-            p.email.toLowerCase().includes(cleanEmail) ||
-            p.phone.replace(/[^0-9]/g, '').includes(cleanEmail.replace(/[^0-9]/g, ''))
-          );
-          return matchPin && (matchEmailOrPhone || !cleanEmail);
-        }) || parentPersonas.find((p) => p.pin === enteredPin);
+        // If PIN is entered:
+        if (cleanEmail || cleanPhone) {
+          matched = candidates.find((p) => {
+            const pinMatch = p.pin === enteredPin;
+            const pPhone = (p.phone || '').replace(/[^0-9]/g, '');
+            const pEmail = (p.email || '').toLowerCase();
+            return pinMatch && (
+              (cleanEmail && pEmail.includes(cleanEmail)) ||
+              (cleanPhone && pPhone.includes(cleanPhone))
+            );
+          });
+        }
+
+        // Prioritize latest registered parent if PIN matches
+        if (!matched) {
+          try {
+            const latestP = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+            if (latestP && latestP.pin === enteredPin) {
+              matched = latestP;
+            }
+          } catch {}
+        }
+
+        // Match any candidate with this PIN
+        if (!matched) {
+          matched = candidates.find((p) => p.pin === enteredPin);
+        }
       } else {
-        // Matched by student roll number and/or parent mobile
-        matched = parentPersonas.find((p) => {
-          const matchRoll = cleanRoll && p.childRollNo.toLowerCase().includes(cleanRoll);
-          const matchPhone = cleanPhone && p.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
+        // Child Roll Number or Parent Phone tab
+        matched = candidates.find((p) => {
+          const matchRoll = cleanRoll && (
+            (p.childRollNo && p.childRollNo.toLowerCase().includes(cleanRoll)) ||
+            (p.studentRoll && p.studentRoll.toLowerCase().includes(cleanRoll))
+          );
+          const matchPhone = cleanPhone && (p.phone || '').replace(/[^0-9]/g, '').includes(cleanPhone);
           return matchRoll || matchPhone;
         });
+
+        if (!matched) {
+          try {
+            const latestP = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+            if (latestP && cleanRoll && latestP.childRollNo?.toLowerCase().includes(cleanRoll)) {
+              matched = latestP;
+            }
+          } catch {}
+        }
       }
 
-      // If still not matched, check latest stored parent in localStorage
+      // If still not matched, fallback to latest registered parent or first candidate
       if (!matched) {
         try {
-          const latest = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
-          if (latest && (latest.pin === enteredPin || (cleanRoll && latest.childRollNo?.toLowerCase().includes(cleanRoll)))) {
-            matched = latest;
-          }
+          const latestP = JSON.parse(localStorage.getItem('learndebt_latest_parent') || 'null');
+          if (latestP) matched = latestP;
         } catch {}
       }
-
-      // Fallback to first available parent persona
-      if (!matched && parentPersonas.length > 0) {
-        matched = parentPersonas[0];
+      if (!matched && candidates.length > 0) {
+        matched = candidates[0];
       }
 
-      const activeParentName = matched?.name || 'Ramesh Krishnan';
-      const activeChildName = matched?.childName || 'Arun Kumar';
-      const activeChildRoll = matched?.childRollNo || 'CS2023-042';
+      const latestStudent = (() => {
+        try { return JSON.parse(localStorage.getItem('learndebt_latest_student') || 'null'); } catch { return null; }
+      })();
+
+      const activeParentName = matched?.name || (latestStudent?.parentName) || 'Parent';
+      const activeChildName = matched?.childName || matched?.studentName || (latestStudent?.name) || 'Student';
+      const activeChildRoll = matched?.childRollNo || (latestStudent?.rollNumber) || 'AU-2026-0042';
 
       const activeParent = {
         id: matched?.id || `parent_${Date.now()}`,
@@ -300,9 +347,9 @@ export const LoginPage: React.FC = () => {
         studentName: activeChildName,
         childRollNo: activeChildRoll,
         linkedStudentId: activeChildRoll,
-        childDept: matched?.childDept || 'Anna University - Computer Science',
+        childDept: matched?.childDept || (latestStudent?.department) || 'Anna University - Computer Science',
         phone: matched?.phone || parentPhone,
-        college: 'Anna University',
+        college: matched?.college || (latestStudent?.college) || 'Anna University',
       };
 
       localStorage.setItem('learndebt_active_parent', JSON.stringify(activeParent));
