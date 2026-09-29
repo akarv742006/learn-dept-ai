@@ -3,9 +3,10 @@ import { AdminDashboardView } from '../components/AdminDashboardView';
 import {
   Users, BookOpen, Layers, Award, FileText, Settings, Plus, Search,
   Download, CheckCircle2, ShieldCheck, Building2, ChevronRight, X,
-  Database, RefreshCw, BarChart2, AlertTriangle
+  Database, RefreshCw, BarChart2, AlertTriangle, ClipboardCheck, Eye
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { firebaseSync } from '../services/firebase';
 
 const DEPARTMENTS = [
   'Computer Science',
@@ -228,63 +229,248 @@ export const AdminStudents: React.FC = () => {
   );
 };
 
-// 2. ADMIN TEACHERS VIEW
+// 2. ADMIN TEACHERS & STAFF TESTS VIEW
 export const AdminTeachers: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState('All');
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
+  const [inspectTest, setInspectTest] = useState<any | null>(null);
 
-  const faculty = [
-    { name: 'Dr. Rajesh Sharma', email: 'rajesh@teacher.edu', dept: 'Computer Science', role: 'Associate Professor', courses: 'DBMS, Algorithms', questionsAuthored: 42 },
-    { name: 'Prof. Meenakshi Sundaram', email: 'meenakshi@teacher.edu', dept: 'Information Technology', role: 'Professor & Head', courses: 'Cloud Computing, Networks', questionsAuthored: 36 },
-    { name: 'Dr. Anand Kulkarni', email: 'anand@teacher.edu', dept: 'Electronics & Communication', role: 'Assistant Professor', courses: 'VLSI Design, Signals', questionsAuthored: 28 },
-    { name: 'Dr. Harish Chandra', email: 'harish@teacher.edu', dept: 'Mechanical Engineering', role: 'Professor', courses: 'Thermodynamics, CAD', questionsAuthored: 31 },
-    { name: 'Prof. Nalini Nair', email: 'nalini@teacher.edu', dept: 'Civil Engineering', role: 'Associate Professor', courses: 'Structural Mechanics', questionsAuthored: 24 }
+  const BASE_FACULTY = [
+    { id: 'tea_rajesh', name: 'Dr. Rajesh Sharma', email: 'rajesh@teacher.edu', dept: 'Computer Science', role: 'Associate Professor & HOD', courses: 'DBMS, Distributed Systems', questionsAuthored: 42 },
+    { id: 'tea_meenakshi', name: 'Prof. Meenakshi Sundaram', email: 'meenakshi@teacher.edu', dept: 'Information Technology', role: 'Professor & Head', courses: 'Cloud Computing, Networks', questionsAuthored: 36 },
+    { id: 'tea_anand', name: 'Dr. Anand Kulkarni', email: 'anand@teacher.edu', dept: 'Electronics & Communication', role: 'Assistant Professor', courses: 'VLSI Design, Signals', questionsAuthored: 28 },
+    { id: 'tea_harish', name: 'Dr. Harish Chandra', email: 'harish@teacher.edu', dept: 'Mechanical Engineering', role: 'Professor', courses: 'Thermodynamics, CAD', questionsAuthored: 31 },
+    { id: 'tea_nalini', name: 'Prof. Nalini Nair', email: 'nalini@teacher.edu', dept: 'Civil Engineering', role: 'Associate Professor', courses: 'Structural Mechanics', questionsAuthored: 24 }
   ];
 
-  const filtered = faculty.filter(f => selectedDept === 'All' || f.dept === selectedDept);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [liveTeachers, allAssignments] = await Promise.all([
+        firebaseSync.getTeachers(),
+        firebaseSync.getAssignments('All')
+      ]);
+
+      setAssignments(allAssignments || []);
+
+      // Merge base teachers with live teachers
+      const map = new Map<string, any>();
+      BASE_FACULTY.forEach(f => map.set((f.email || f.id).toLowerCase(), f));
+      (liveTeachers || []).forEach(t => {
+        const key = (t.email || t.id || t.name).toLowerCase();
+        map.set(key, {
+          id: t.id || key,
+          name: t.name || 'Faculty Member',
+          email: t.email || `${key}@teacher.edu`,
+          dept: t.department || 'Computer Science',
+          role: t.designation || 'Staff Faculty & Mentor',
+          courses: t.courses ? (Array.isArray(t.courses) ? t.courses.join(', ') : t.courses) : 'Core Curriculum',
+          questionsAuthored: t.questionsAuthored || 10
+        });
+      });
+
+      setTeachers(Array.from(map.values()));
+      setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (e) {
+      console.warn("Could not load live admin teachers:", e);
+      setTeachers(BASE_FACULTY);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener('learndebt_assignment_created', loadData);
+    window.addEventListener('learndebt_teacher_created', loadData);
+    const interval = setInterval(loadData, 8000);
+    return () => {
+      window.removeEventListener('learndebt_assignment_created', loadData);
+      window.removeEventListener('learndebt_teacher_created', loadData);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const filtered = teachers.filter(f => selectedDept === 'All' || f.dept === selectedDept);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-16">
       <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Faculty Governance</span>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mt-1">Department Faculty & Mentors</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage professorial assignments, course stewardship, and diagnostic authoring output.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Faculty Governance & Staff Tests • Live Synced
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Synced: <strong className="text-slate-600 dark:text-slate-300">{lastRefreshed}</strong>
+            </span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mt-1">Department Faculty & Created Staff Tests</h1>
+          <p className="text-xs text-slate-500 mt-1">Inspect faculty members, authored questions, and assessments published directly to students.</p>
         </div>
 
-        <select
-          value={selectedDept}
-          onChange={(e) => setSelectedDept(e.target.value)}
-          className="bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700"
-        >
-          <option value="All">All Departments</option>
-          {DEPARTMENTS.map(d => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700"
+          >
+            <option value="All">All Departments</option>
+            {DEPARTMENTS.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filtered.map((f, i) => (
-          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold">
-                {f.dept}
-              </span>
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                {f.questionsAuthored} Questions Authored
-              </span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filtered.map((f, i) => {
+          // Find tests created by this teacher
+          const teacherTests = assignments.filter((a) => {
+            const author = (a.assignedBy || '').toLowerCase();
+            const teacherName = f.name.toLowerCase();
+            const teacherEmail = (f.email || '').toLowerCase();
+            const aTeacherId = (a.teacherId || '').toLowerCase();
+            return (
+              author.includes(teacherName) ||
+              teacherName.includes(author) ||
+              aTeacherId.includes(f.id.toLowerCase()) ||
+              (a.department === f.dept && author.length > 0)
+            );
+          });
+
+          return (
+            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold">
+                    {f.dept}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-black bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                    {teacherTests.length} Staff Tests Created
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <h2 className="text-base font-black text-slate-900 dark:text-white">{f.name}</h2>
+                  <p className="text-xs text-slate-500">{f.role} &bull; {f.email}</p>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-xs text-slate-600 dark:text-slate-300 mt-3">
+                  <span className="font-bold text-slate-900 dark:text-white">Courses: </span>
+                  {f.courses}
+                </div>
+              </div>
+
+              {/* Staff Tests List for this Teacher */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Published Tests & Student Assessments:
+                </span>
+                {teacherTests.length > 0 ? (
+                  <div className="space-y-2">
+                    {teacherTests.map((test: any, tIdx: number) => (
+                      <div
+                        key={test._id || test.id || tIdx}
+                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <h4 className="font-black text-slate-900 dark:text-white truncate">{test.title}</h4>
+                          <p className="text-[11px] text-slate-500">
+                            {test.subjectId || 'General'} &bull; {test.questions?.length || test.questionIds?.length || 5} Questions &bull; {test.durationMinutes || 25} mins
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setInspectTest(test)}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-[11px] shrink-0 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic py-1">
+                    No custom assessments published yet. Tests created by this faculty in Teacher Portal will store here.
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-black text-slate-900 dark:text-white">{f.name}</h2>
-              <p className="text-xs text-slate-500">{f.role} &bull; {f.email}</p>
+          );
+        })}
+      </div>
+
+      {/* Inspect Test Questions Modal */}
+      {inspectTest && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase text-indigo-500 tracking-wider block">
+                  Staff Assessment Review
+                </span>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">{inspectTest.title}</h3>
+                <p className="text-xs text-slate-500">
+                  Department: {inspectTest.department} &bull; Author: {inspectTest.assignedBy}
+                </p>
+              </div>
+              <button
+                onClick={() => setInspectTest(null)}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-xs text-slate-600 dark:text-slate-300">
-              <span className="font-bold text-slate-900 dark:text-white">Assigned Courses: </span>
-              {f.courses}
+
+            <div className="space-y-3">
+              {(inspectTest.questions && inspectTest.questions.length > 0 ? inspectTest.questions : [
+                { question: 'What is the primary key in a relational database?', options: ['Unique Identifier', 'Foreign Reference', 'Random String', 'Volatile Pointer'], correctAnswer: 0, explanation: 'Primary keys uniquely identify each row in a relation.' }
+              ]).map((q: any, qIdx: number) => (
+                <div key={qIdx} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-2">
+                  <span className="font-bold text-slate-400 uppercase text-[10px]">Question {qIdx + 1}</span>
+                  <p className="font-bold text-slate-900 dark:text-white">{q.question}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                    {(q.options || []).map((opt: string, optIdx: number) => (
+                      <div
+                        key={optIdx}
+                        className={`p-2 rounded-xl text-[11px] font-medium border ${
+                          optIdx === q.correctAnswer
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-800 dark:text-emerald-300 font-bold'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {String.fromCharCode(65 + optIdx)}. {opt} {optIdx === q.correctAnswer && '✓'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setInspectTest(null)}
+                className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold cursor-pointer"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -486,16 +672,70 @@ export const AdminSubjects: React.FC = () => {
 // 5. ADMIN ASSESSMENTS VIEW
 export const AdminAssessments: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState('All');
+  const [assessmentsList, setAssessmentsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const deptAssessments = [
-    { title: 'CS301: Normalization & Relational Algebra Diagnostic', dept: 'Computer Science', target: 'Year 3', submissions: 112, avgScore: '74.2%', status: 'Active' },
-    { title: 'IT202: Network Topology & Routing Protocols Benchmark', dept: 'Information Technology', target: 'Year 2', submissions: 86, avgScore: '69.8%', status: 'Active' },
-    { title: 'EC201: Semiconductor Physics & Op-Amp Mastery Test', dept: 'Electronics & Communication', target: 'Year 2', submissions: 74, avgScore: '71.5%', status: 'Active' },
-    { title: 'ME301: Thermodynamics & Energy Balances', dept: 'Mechanical Engineering', target: 'Year 3', submissions: 62, avgScore: '78.1%', status: 'Active' },
-    { title: 'CE201: Fluid Mechanics & Hydrodynamics Diagnostic', dept: 'Civil Engineering', target: 'Year 2', submissions: 54, avgScore: '73.0%', status: 'Active' }
+  const BASE_ASSESSMENTS = [
+    { id: 'asm_1', title: 'CS301: Normalization & Relational Algebra Diagnostic', dept: 'Computer Science', target: 'Year 3', submissions: 112, avgScore: '74.2%', status: 'Active', isStaff: false },
+    { id: 'asm_2', title: 'IT202: Network Topology & Routing Protocols Benchmark', dept: 'Information Technology', target: 'Year 2', submissions: 86, avgScore: '69.8%', status: 'Active', isStaff: false },
+    { id: 'asm_3', title: 'EC201: Semiconductor Physics & Op-Amp Mastery Test', dept: 'Electronics & Communication', target: 'Year 2', submissions: 74, avgScore: '71.5%', status: 'Active', isStaff: false },
+    { id: 'asm_4', title: 'ME301: Thermodynamics & Energy Balances', dept: 'Mechanical Engineering', target: 'Year 3', submissions: 62, avgScore: '78.1%', status: 'Active', isStaff: false },
+    { id: 'asm_5', title: 'CE201: Fluid Mechanics & Hydrodynamics Diagnostic', dept: 'Civil Engineering', target: 'Year 2', submissions: 54, avgScore: '73.0%', status: 'Active', isStaff: false }
   ];
 
-  const filtered = deptAssessments.filter(a => selectedDept === 'All' || a.dept === selectedDept);
+  const loadAssessments = async () => {
+    setLoading(true);
+    try {
+      const [staffTests, allSubs] = await Promise.all([
+        firebaseSync.getAssignments('All'),
+        firebaseSync.getSubmissions()
+      ]);
+
+      const staffFormatted = (staffTests || []).map((t: any) => {
+        const subsForTest = (allSubs || []).filter((s: any) => s.assignmentId === t._id || s.assignmentTitle === t.title);
+        const avg = subsForTest.length > 0
+          ? Math.round(subsForTest.reduce((acc: number, s: any) => acc + (s.percentage || 0), 0) / subsForTest.length)
+          : (t.averageScore || 0);
+
+        return {
+          id: t._id || t.id,
+          title: t.title,
+          dept: t.department || 'Computer Science',
+          target: t.targetYear || 'All Years',
+          submissions: subsForTest.length || t.submissionsCount || 0,
+          avgScore: avg > 0 ? `${avg}%` : 'Pending',
+          status: 'Published',
+          assignedBy: t.assignedBy || 'Faculty Head',
+          isStaff: true
+        };
+      });
+
+      // Filter out duplicates
+      const titles = new Set(staffFormatted.map(s => s.title.toLowerCase()));
+      const remainingBase = BASE_ASSESSMENTS.filter(b => !titles.has(b.title.toLowerCase()));
+
+      setAssessmentsList([...staffFormatted, ...remainingBase]);
+    } catch (e) {
+      console.warn("Could not load assessments:", e);
+      setAssessmentsList(BASE_ASSESSMENTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAssessments();
+    window.addEventListener('learndebt_assignment_created', loadAssessments);
+    window.addEventListener('learndebt_test_submitted', loadAssessments);
+    const interval = setInterval(loadAssessments, 12000);
+    return () => {
+      window.removeEventListener('learndebt_assignment_created', loadAssessments);
+      window.removeEventListener('learndebt_test_submitted', loadAssessments);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const filtered = assessmentsList.filter(a => selectedDept === 'All' || a.dept === selectedDept);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-16">
@@ -506,22 +746,32 @@ export const AdminAssessments: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Real-time status of staff-published assessments and student completion records.</p>
         </div>
 
-        <select
-          value={selectedDept}
-          onChange={(e) => setSelectedDept(e.target.value)}
-          className="bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700"
-        >
-          <option value="All">All Departments</option>
-          {DEPARTMENTS.map(d => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadAssessments}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="bg-slate-50 dark:bg-slate-800 text-xs font-bold rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700"
+          >
+            <option value="All">All Departments</option>
+            {DEPARTMENTS.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="space-y-3">
         {filtered.map((item, idx) => (
           <div
-            key={idx}
+            key={item.id || idx}
             className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
           >
             <div>
@@ -530,8 +780,16 @@ export const AdminAssessments: React.FC = () => {
                   {item.dept}
                 </span>
                 <span className="text-[11px] font-bold text-slate-400">&bull; {item.target}</span>
+                {item.isStaff && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                    Staff Created
+                  </span>
+                )}
               </div>
               <h2 className="text-base font-black text-slate-900 dark:text-white">{item.title}</h2>
+              {item.assignedBy && (
+                <p className="text-[11px] text-slate-400 mt-0.5">Faculty Author: <strong className="text-slate-600 dark:text-slate-300">{item.assignedBy}</strong></p>
+              )}
             </div>
 
             <div className="flex items-center gap-6">

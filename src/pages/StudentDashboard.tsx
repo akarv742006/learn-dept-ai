@@ -32,7 +32,10 @@ export const StudentDashboard: React.FC = () => {
   const fetchTestsAndReports = async () => {
     try {
       const dept = user?.department || 'Computer Science';
-      const tests = await firebaseSync.getAssignments(dept);
+      let tests = await firebaseSync.getAssignments(dept);
+      if (!tests || tests.length === 0) {
+        tests = await firebaseSync.getAssignments('All');
+      }
       setAssignedTests(tests || []);
 
       const roll = (user as any)?.rollNumber || user?.id || 'CS2023-042';
@@ -72,11 +75,13 @@ export const StudentDashboard: React.FC = () => {
       fetchTestsAndReports();
     };
     window.addEventListener('learndebt_test_submitted', onTestUpdate);
+    window.addEventListener('learndebt_assignment_created', onTestUpdate);
     window.addEventListener('storage', onTestUpdate);
-    const interval = setInterval(fetchTestsAndReports, 10000); // 10s auto-refresh for newly created tests
+    const interval = setInterval(fetchTestsAndReports, 8000); // 8s auto-refresh for newly created tests
 
     return () => {
       window.removeEventListener('learndebt_test_submitted', onTestUpdate);
+      window.removeEventListener('learndebt_assignment_created', onTestUpdate);
       window.removeEventListener('storage', onTestUpdate);
       clearInterval(interval);
     };

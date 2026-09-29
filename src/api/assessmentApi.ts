@@ -63,20 +63,24 @@ export interface AssessmentSubmitResponse {
 }
 
 export interface StaffQuestionPayload {
+  id?: string;
+  _id?: string;
   question: string;
   options: string[];
   correctAnswer: number;
   explanation?: string;
   department: string;
   subjectId: string;
-  conceptId: string;
-  difficulty: string;
+  conceptId?: string;
+  difficulty?: string;
   bloomLevel?: string;
   createdBy?: string;
   tags?: string[];
 }
 
 export interface StaffAssignmentPayload {
+  _id?: string;
+  id?: string;
   title: string;
   description?: string;
   department: string;
@@ -85,13 +89,20 @@ export interface StaffAssignmentPayload {
   conceptId?: string;
   durationMinutes?: number;
   questionIds?: string[];
-  questions?: StaffQuestionPayload[];
+  questions?: any[];
   assignedBy?: string;
   dueDate?: string;
+  teacherId?: string;
+  teacherEmail?: string;
+  createdAt?: string;
+  status?: string;
+  submissionsCount?: number;
+  averageScore?: number;
 }
 
 export interface DepartmentAssignment {
   _id: string;
+  id?: string;
   title: string;
   description?: string;
   department: string;
@@ -100,12 +111,14 @@ export interface DepartmentAssignment {
   conceptId?: string;
   durationMinutes: number;
   questionIds: string[];
+  questions?: any[];
   assignedBy: string;
   dueDate?: string;
   submissionsCount?: number;
   averageScore?: number;
   status: string;
   createdAt: string;
+  teacherId?: string;
 }
 
 export interface StudentSubmission {

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clock, Award, AlertTriangle, RotateCcw,
   Sparkles, BookOpen, Bookmark, ArrowRight, RefreshCw, CheckCircle2, XCircle,
   Building2, Users, FileCheck, Layers, HelpCircle,
-  Maximize2, Minimize2, Shield, ShieldAlert, Lock, AlertCircle
+  Maximize2, Minimize2, Shield, ShieldAlert, Lock, AlertCircle, Globe
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
@@ -44,12 +44,16 @@ const CONCEPTS_BY_SUBJECT: Record<string, string[]> = {
 
 export const StudentQuizPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetTestId = searchParams.get('testId');
   const { user } = useAuth();
   const studentId = user?.id || 'student_arun';
 
   // Department State
   const [selectedDepartment, setSelectedDepartment] = useState<string>(user?.department || 'All Departments / Campus Wide');
   const [deptAssignments, setDeptAssignments] = useState<DepartmentAssignment[]>([]);
+  const [allCampusAssignments, setAllCampusAssignments] = useState<DepartmentAssignment[]>([]);
+  const [filterMode, setFilterMode] = useState<'myDept' | 'allCampus'>('myDept');
   const [pastSubmissions, setPastSubmissions] = useState<StudentSubmission[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState<boolean>(false);
 
@@ -132,29 +136,50 @@ export const StudentQuizPage: React.FC = () => {
     setLoadingAssignments(true);
     try {
       const queryDept = selectedDepartment.includes('All') ? 'All' : selectedDepartment;
-      const [apiList, fbList] = await Promise.allSettled([
+      const [apiDept, fbDept, fbAll, apiAll] = await Promise.allSettled([
         assessmentApi.getDepartmentAssignments(queryDept),
-        firebaseSync.getAssignments(selectedDepartment)
+        firebaseSync.getAssignments(selectedDepartment),
+        firebaseSync.getAssignments('All'),
+        assessmentApi.getDepartmentAssignments('All')
       ]);
 
-      const allList: DepartmentAssignment[] = [];
-      if (apiList.status === 'fulfilled' && Array.isArray(apiList.value)) {
-        allList.push(...apiList.value);
+      const deptList: DepartmentAssignment[] = [];
+      if (apiDept.status === 'fulfilled' && Array.isArray(apiDept.value)) {
+        deptList.push(...apiDept.value);
       }
-      if (fbList.status === 'fulfilled' && Array.isArray(fbList.value)) {
-        allList.push(...fbList.value);
+      if (fbDept.status === 'fulfilled' && Array.isArray(fbDept.value)) {
+        deptList.push(...fbDept.value);
       }
 
-      const map = new Map();
+      const allList: DepartmentAssignment[] = [];
+      if (apiAll.status === 'fulfilled' && Array.isArray(apiAll.value)) {
+        allList.push(...apiAll.value);
+      }
+      if (fbAll.status === 'fulfilled' && Array.isArray(fbAll.value)) {
+        allList.push(...fbAll.value);
+      }
+      allList.push(...deptList);
+
+      const allMap = new Map<string, DepartmentAssignment>();
       allList.forEach((a: any) => {
         const id = a._id || a.id;
-        if (id && !map.has(id)) map.set(id, a);
+        if (id && !allMap.has(id)) allMap.set(id, a);
       });
-
-      const merged = Array.from(map.values()).sort(
+      const allMerged = Array.from(allMap.values()).sort(
         (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
-      setDeptAssignments(merged);
+
+      const deptMap = new Map<string, DepartmentAssignment>();
+      deptList.forEach((a: any) => {
+        const id = a._id || a.id;
+        if (id && !deptMap.has(id)) deptMap.set(id, a);
+      });
+      const deptMerged = Array.from(deptMap.values()).sort(
+        (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
+
+      setAllCampusAssignments(allMerged);
+      setDeptAssignments(deptMerged);
       setLastRefreshedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
       console.warn("Could not fetch department assignments", err);
@@ -166,15 +191,32 @@ export const StudentQuizPage: React.FC = () => {
   useEffect(() => {
     fetchDeptAssignments();
 
-    // Auto-poll assignments every 12 seconds so teacher-created tests appear in real-time
-    const interval = setInterval(fetchDeptAssignments, 12000);
+    // Auto-poll assignments and listen for teacher test creation
+    const onAsmCreated = () => {
+      fetchDeptAssignments();
+    };
+    window.addEventListener('learndebt_assignment_created', onAsmCreated);
+    const interval = setInterval(fetchDeptAssignments, 8000);
 
     // Also update default subject for department
     const subjects = SUBJECTS_BY_DEPARTMENT[selectedDepartment] || ['DBMS'];
     setSelectedSubject(subjects[0]);
 
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('learndebt_assignment_created', onAsmCreated);
+      clearInterval(interval);
+    };
   }, [selectedDepartment]);
+
+  // If redirected with targetTestId from student dashboard, auto-launch
+  useEffect(() => {
+    if (targetTestId && allCampusAssignments.length > 0 && quizState === 'config') {
+      const match = allCampusAssignments.find(a => (a._id || (a as any).id) === targetTestId);
+      if (match) {
+        handleStartFacultyAssignment(match);
+      }
+    }
+  }, [targetTestId, allCampusAssignments, quizState]);
 
   // When subject changes, reset selected concept
   useEffect(() => {
@@ -644,63 +686,114 @@ export const StudentQuizPage: React.FC = () => {
             </div>
 
             {/* SECTION 1: FACULTY-ASSIGNED ASSESSMENTS */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <FileCheck className="w-5 h-5 text-emerald-400" />
-                  <h2 className="text-base font-black text-white">
-                    Assigned by Your Faculty ({selectedDepartment})
-                  </h2>
-                </div>
-                <span className="text-xs font-bold text-slate-400">
-                  {deptAssignments.length} Active Assignments
-                </span>
-              </div>
+            {(() => {
+              const displayAssignments = filterMode === 'allCampus'
+                ? allCampusAssignments
+                : (deptAssignments.length > 0 ? deptAssignments : allCampusAssignments);
+              const isFallingBackToAll = filterMode === 'myDept' && deptAssignments.length === 0 && allCampusAssignments.length > 0;
 
-              {loadingAssignments ? (
-                <div className="text-center py-8 text-xs text-slate-400 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                  Loading department assignments...
-                </div>
-              ) : deptAssignments.length === 0 ? (
-                <div className="text-center py-6 text-xs text-slate-500 bg-slate-950 rounded-2xl border border-slate-800/80">
-                  No pending faculty assignments for {selectedDepartment}. You can take a practice test below!
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {deptAssignments.map((assign) => (
-                    <div
-                      key={assign._id}
-                      className="bg-slate-950 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 transition flex flex-col justify-between space-y-3"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold">
-                            {assign.targetYear || 'Year 3'}
-                          </span>
-                          <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" /> {assign.durationMinutes} mins
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-white leading-snug">{assign.title}</h3>
-                        <p className="text-xs text-slate-400 line-clamp-2">{assign.description || 'Department diagnostic evaluation.'}</p>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                        <span className="text-[11px] text-slate-500">By: <strong className="text-slate-300">{assign.assignedBy}</strong></span>
-                        <button
-                          onClick={() => handleStartFacultyAssignment(assign)}
-                          disabled={isLoading}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5"
-                        >
-                          Take Test <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+              return (
+                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="w-5 h-5 text-emerald-400" />
+                      <h2 className="text-base font-black text-white">
+                        Faculty-Assigned Tests & Assessments
+                      </h2>
                     </div>
-                  ))}
+
+                    {/* View Toggles */}
+                    <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                      <button
+                        onClick={() => setFilterMode('allCampus')}
+                        className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                          filterMode === 'allCampus' || (filterMode === 'myDept' && deptAssignments.length === 0)
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>All Campus ({allCampusAssignments.length})</span>
+                      </button>
+                      <button
+                        onClick={() => setFilterMode('myDept')}
+                        className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                          filterMode === 'myDept' && deptAssignments.length > 0
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Building2 className="w-3.5 h-3.5" />
+                        <span>My Dept ({deptAssignments.length})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {isFallingBackToAll && (
+                    <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl flex items-center gap-2.5 text-xs text-indigo-300">
+                      <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <span>
+                        No tests exclusively tagged for <strong>{selectedDepartment}</strong>. Showing all <strong>{allCampusAssignments.length} campus faculty tests</strong> so you can participate directly!
+                      </span>
+                    </div>
+                  )}
+
+                  {loadingAssignments ? (
+                    <div className="text-center py-8 text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                      Loading faculty assessments...
+                    </div>
+                  ) : displayAssignments.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-500 bg-slate-950 rounded-2xl border border-slate-800/80">
+                      No staff assignments currently scheduled. You can take a customized practice evaluation below!
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {displayAssignments.map((assign) => (
+                        <div
+                          key={assign._id || (assign as any).id}
+                          className="bg-slate-950 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 transition flex flex-col justify-between space-y-3"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold">
+                                  {assign.department || 'All Departments'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-bold">
+                                  {assign.targetYear || 'Year 3'}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" /> {assign.durationMinutes || 25} mins
+                              </span>
+                            </div>
+                            <h3 className="text-sm font-bold text-white leading-snug">{assign.title}</h3>
+                            <p className="text-xs text-slate-400 line-clamp-2">{assign.description || 'Department diagnostic evaluation authored by faculty.'}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-500">
+                              <span>By: <strong className="text-slate-300">{assign.assignedBy || 'Faculty Member'}</strong></span>
+                              <span className="block text-[10px] text-indigo-400 font-semibold">
+                                {assign.questions?.length || assign.questionIds?.length || 5} Questions Included
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleStartFacultyAssignment(assign)}
+                              disabled={isLoading}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              Take Test <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* SECTION 1.5: MY COMPLETED EXAMS & MARK SHEETS */}
             {pastSubmissions.length > 0 && (

@@ -302,15 +302,61 @@ export const TeacherAssessments: React.FC = () => {
     }
 
     let finalQIds = [...selectedQIds];
+    const pool = questionSource === 'dept' && questions.length > 0 ? questions : allCollegeQuestions;
     if (finalQIds.length === 0) {
-      const pool = questionSource === 'dept' && questions.length > 0 ? questions : allCollegeQuestions;
       if (pool.length > 0) {
         finalQIds = pool.slice(0, 5).map(q => q.id || q._id || '');
         setSelectedQIds(finalQIds);
       }
     }
 
+    // Resolve full question objects so the student gets the exact questions even without backend connection
+    let selectedQuestions = pool
+      .filter(q => finalQIds.includes(q.id || (q as any)._id || ''))
+      .map(q => ({
+        id: q.id || (q as any)._id || `q_${Date.now()}`,
+        _id: q.id || (q as any)._id || `q_${Date.now()}`,
+        question: q.question,
+        options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: q.correctAnswer ?? 0,
+        explanation: q.explanation || 'Instructor verified rationale.',
+        department: assignDept,
+        subjectId: assignSubject.trim() || 'General',
+        difficulty: q.difficulty || 'medium'
+      }));
+
+    if (selectedQuestions.length === 0) {
+      selectedQuestions = [
+        {
+          id: `q_${Date.now()}_1`,
+          _id: `q_${Date.now()}_1`,
+          question: `In ${assignSubject || 'Engineering'}, what is the fundamental principle governing system stability and redundancy control?`,
+          options: ['Normalized Functional Dependency', 'Arbitrary Linear Recursion', 'Unindexed Sequential Traversal', 'Unbounded Memory Allocation'],
+          correctAnswer: 0,
+          explanation: 'Normalized functional dependency models eliminate redundancy and maintain structural consistency.',
+          department: assignDept,
+          subjectId: assignSubject || 'General',
+          difficulty: 'medium'
+        },
+        {
+          id: `q_${Date.now()}_2`,
+          _id: `q_${Date.now()}_2`,
+          question: `Which diagnostic model evaluates root-cause concept deficits across prerequisite knowledge graphs?`,
+          options: ['Learning Debt Prerequisite Dependency Graph', 'Blind Trial Testing', 'Static Memory Dumping', 'Arbitrary Polling'],
+          correctAnswer: 0,
+          explanation: 'Learning debt prerequisite graphs map and isolate foundational learning gaps.',
+          department: assignDept,
+          subjectId: assignSubject || 'General',
+          difficulty: 'medium'
+        }
+      ];
+      finalQIds = selectedQuestions.map(q => q.id);
+    }
+
     try {
+      const teacherId = user?.id || (user?.email ? user.email.split('@')[0] : 'teacher_rajesh');
+      const teacherName = user?.name || 'Department Faculty Head';
+
       const assignmentPayload = {
         _id: `assign_${Date.now()}`,
         id: `assign_${Date.now()}`,
@@ -321,7 +367,10 @@ export const TeacherAssessments: React.FC = () => {
         subjectId: assignSubject.trim() || 'General',
         durationMinutes: Number(assignDuration),
         questionIds: finalQIds,
-        assignedBy: user?.name || 'Department Faculty Head',
+        questions: selectedQuestions,
+        assignedBy: teacherName,
+        teacherId: teacherId,
+        teacherEmail: user?.email || `${teacherId}@teacher.edu`,
         createdAt: new Date().toISOString(),
         status: 'published',
         submissionsCount: 0,
@@ -336,7 +385,7 @@ export const TeacherAssessments: React.FC = () => {
 
       await firebaseSync.recordAssignment(assignmentPayload);
 
-      setSuccessMessage(`Published assignment "${assignTitle}" with ${finalQIds.length > 0 ? finalQIds.length : 'curriculum'} questions for ${assignDept} students!`);
+      setSuccessMessage(`Published assignment "${assignTitle}" with ${selectedQuestions.length} questions for ${assignDept} students!`);
       setAssignTitle('');
       setAssignDescription('');
       setSelectedQIds([]);

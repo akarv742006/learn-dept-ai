@@ -184,6 +184,13 @@ class FirebaseSyncService {
         }),
       ]);
 
+      try {
+        const localTeachers = JSON.parse(localStorage.getItem('learndebt_registered_teachers') || '[]');
+        const filtered = localTeachers.filter((t: any) => (t.email || '').toLowerCase() !== data.email.toLowerCase());
+        localStorage.setItem('learndebt_registered_teachers', JSON.stringify([teacherPayload, ...filtered]));
+        window.dispatchEvent(new CustomEvent('learndebt_teacher_created', { detail: teacherPayload }));
+      } catch {}
+
       console.log(`[Firebase] Successfully synced Teacher (${teacherKey}) to RTDB`);
       return { success: true, studentId: teacherKey };
     }
@@ -290,6 +297,31 @@ class FirebaseSyncService {
       localStorage.setItem('learndebt_recent_logins', JSON.stringify([loginPayload, ...filtered].slice(0, 50)));
     } catch {}
 
+    if (data.role === 'teacher') {
+      const teacherKey = (data.userId || data.email.split('@')[0] || `tch_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const teacherPayload = {
+        id: teacherKey,
+        name: data.name,
+        email: data.email,
+        role: 'teacher',
+        college: data.college || 'Anna University',
+        department: data.department || 'Computer Science',
+        designation: 'Staff Faculty & Mentor',
+        lastLoginAt: now,
+        updatedAt: now,
+      };
+      await Promise.allSettled([
+        this.put(`teachers/${teacherKey}`, teacherPayload),
+        this.put(`directory/teachers/${teacherKey}`, teacherPayload),
+      ]);
+      try {
+        const localTeachers = JSON.parse(localStorage.getItem('learndebt_registered_teachers') || '[]');
+        const filteredT = localTeachers.filter((t: any) => (t.email || '').toLowerCase() !== data.email.toLowerCase());
+        localStorage.setItem('learndebt_registered_teachers', JSON.stringify([teacherPayload, ...filteredT]));
+        window.dispatchEvent(new CustomEvent('learndebt_teacher_created', { detail: teacherPayload }));
+      } catch {}
+    }
+
     console.log(`[Firebase] Recorded login for ${data.name} (${data.role}) under /logins/${loginId}`);
     return true;
   }
@@ -319,17 +351,26 @@ class FirebaseSyncService {
       createdAt: assignment.createdAt || now,
     };
 
-    // 1. Write to Firebase RTDB
-    await this.put(`assignments/${asmId}`, cleanPayload);
+    const teacherKey = ((assignment.teacherId || assignment.assignedBy || 'Faculty Head') as string)
+      .toLowerCase()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // 1. Write to Firebase RTDB under multiple paths so Admin and Teacher sections can read
+    await Promise.all([
+      this.put(`assignments/${asmId}`, cleanPayload),
+      this.put(`teachers/${teacherKey}/assignments/${asmId}`, cleanPayload),
+      this.put(`admin/assessments/${asmId}`, cleanPayload)
+    ]);
 
     // 2. Write to localStorage
     try {
       const stored = JSON.parse(localStorage.getItem('learndebt_assignments') || '[]');
       const filtered = stored.filter((a: any) => a._id !== asmId && a.id !== asmId);
       localStorage.setItem('learndebt_assignments', JSON.stringify([cleanPayload, ...filtered]));
+      window.dispatchEvent(new CustomEvent('learndebt_assignment_created', { detail: cleanPayload }));
     } catch {}
 
-    console.log(`[Firebase] Recorded assignment "${cleanPayload.title}" under /assignments/${asmId}`);
+    console.log(`[Firebase] Recorded assignment "${cleanPayload.title}" under /assignments/${asmId} & /teachers/${teacherKey}/assignments`);
     return true;
   }
 
@@ -386,6 +427,49 @@ class FirebaseSyncService {
         normDept.includes(aDept)
       );
     });
+  }
+
+  /**
+   * Get all faculty and teachers from Firebase RTDB and localStorage
+   */
+  async getTeachers(): Promise<any[]> {
+    let fbTeachers: any[] = [];
+    try {
+      const [resT, resDir] = await Promise.allSettled([
+        fetch(`${this.baseUrl}/teachers.json`),
+        fetch(`${this.baseUrl}/directory/teachers.json`)
+      ]);
+
+      if (resT.status === 'fulfilled' && resT.value.ok) {
+        const data = await resT.value.json();
+        if (data && typeof data === 'object') {
+          fbTeachers.push(...Object.values(data));
+        }
+      }
+      if (resDir.status === 'fulfilled' && resDir.value.ok) {
+        const data = await resDir.value.json();
+        if (data && typeof data === 'object') {
+          fbTeachers.push(...Object.values(data));
+        }
+      }
+    } catch (e) {
+      console.warn('[Firebase] Teachers fetch notice:', e);
+    }
+
+    let localTeachers: any[] = [];
+    try {
+      localTeachers = JSON.parse(localStorage.getItem('learndebt_registered_teachers') || '[]');
+    } catch {}
+
+    const map = new Map<string, any>();
+    [...localTeachers, ...fbTeachers].forEach((t) => {
+      const id = t.email || t.id || t.name;
+      if (id && !map.has(id.toLowerCase())) {
+        map.set(id.toLowerCase(), t);
+      }
+    });
+
+    return Array.from(map.values());
   }
 
   /**
