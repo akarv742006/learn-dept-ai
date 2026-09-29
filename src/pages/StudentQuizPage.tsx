@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Clock, Award, AlertTriangle, RotateCcw,
   Sparkles, BookOpen, Bookmark, ArrowRight, RefreshCw, CheckCircle2, XCircle,
-  Building2, Users, FileCheck, Layers, HelpCircle
+  Building2, Users, FileCheck, Layers, HelpCircle,
+  Maximize2, Minimize2, Shield, ShieldAlert, Lock, AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
@@ -71,6 +72,12 @@ export const StudentQuizPage: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeAssignmentTitle, setActiveAssignmentTitle] = useState<string>('');
+
+  // Fullscreen & Anti-Cheat State
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [fullscreenWarning, setFullscreenWarning] = useState<boolean>(false);
+  const [antiCheatToast, setAntiCheatToast] = useState<string | null>(null);
+  const [securityStrikes, setSecurityStrikes] = useState<number>(0);
 
   // Generation loading state
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -195,6 +202,132 @@ export const StudentQuizPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [quizState, assessmentId, selectedOptions]);
 
+  // Fullscreen Management
+  const enterFullscreen = async () => {
+    try {
+      const docEl = document.documentElement as any;
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) {
+          await docEl.msRequestFullscreen();
+        }
+      }
+      setIsFullscreen(true);
+      setFullscreenWarning(false);
+    } catch (err) {
+      console.warn("Fullscreen request error (browser user-gesture policy):", err);
+    }
+  };
+
+  const exitFullscreen = async () => {
+    try {
+      const doc = document as any;
+      if (document.fullscreenElement || doc.webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+      setIsFullscreen(false);
+      setFullscreenWarning(false);
+    } catch (err) {
+      console.warn("Fullscreen exit error:", err);
+    }
+  };
+
+  // Anti-Cheating & Fullscreen Enforcement Effect
+  useEffect(() => {
+    if (quizState !== 'active') {
+      exitFullscreen();
+      return;
+    }
+
+    // Automatically trigger fullscreen
+    enterFullscreen();
+
+    const triggerAntiCheatToast = (msg: string) => {
+      setAntiCheatToast(msg);
+      setSecurityStrikes((prev) => prev + 1);
+      setTimeout(() => setAntiCheatToast(null), 3800);
+    };
+
+    // Fullscreen exit tracking
+    const handleFullscreenChange = () => {
+      const doc = document as any;
+      const active = Boolean(document.fullscreenElement || doc.webkitFullscreenElement);
+      setIsFullscreen(active);
+      if (!active && quizState === 'active') {
+        setFullscreenWarning(true);
+        triggerAntiCheatToast("⚠️ Fullscreen Mode Exited! Exiting fullscreen or switching windows is prohibited and logged.");
+      } else {
+        setFullscreenWarning(false);
+      }
+    };
+
+    // Prevent Copy
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      triggerAntiCheatToast("🚫 Copying questions or answers is strictly disabled during the exam.");
+    };
+
+    // Prevent Paste
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      triggerAntiCheatToast("🚫 Pasting text is strictly disabled during the exam.");
+    };
+
+    // Prevent Cut
+    const handleCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      triggerAntiCheatToast("🚫 Cut action is disabled.");
+    };
+
+    // Prevent Right Click (Context Menu)
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      triggerAntiCheatToast("🚫 Right-click context menu is disabled in exam mode.");
+    };
+
+    // Prevent Key Combinations (Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+U, F12, DevTools)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'u', 'p', 's', 'a'].includes(key)) {
+        e.preventDefault();
+        triggerAntiCheatToast(`🚫 Keyboard shortcut Ctrl+${key.toUpperCase()} is blocked during the exam.`);
+        return false;
+      }
+      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key))) {
+        e.preventDefault();
+        triggerAntiCheatToast("🚫 Developer tools are strictly blocked.");
+        return false;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('copy', handleCopy);
+    window.addEventListener('paste', handlePaste);
+    window.addEventListener('cut', handleCut);
+    window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('copy', handleCopy);
+      window.removeEventListener('paste', handlePaste);
+      window.removeEventListener('cut', handleCut);
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [quizState]);
+
   // Start self-configured quiz
   const handleStartQuiz = async () => {
     setIsLoading(true);
@@ -223,6 +356,7 @@ export const StudentQuizPage: React.FC = () => {
         setQuizState('exhausted');
       } else {
         setQuizState('active');
+        enterFullscreen();
       }
     } catch (e: any) {
       alert("Error starting assessment: " + e.message);
@@ -313,6 +447,7 @@ export const StudentQuizPage: React.FC = () => {
       setTimeLeftSeconds((assign.durationMinutes || 25) * 60);
       setIsSubmitted(false);
       setQuizState('active');
+      enterFullscreen();
     } catch (e: any) {
       alert("Error starting faculty assignment: " + e.message);
     } finally {
@@ -765,9 +900,74 @@ export const StudentQuizPage: React.FC = () => {
           </div>
         )}
 
-        {/* 3. ACTIVE QUIZ RUNNER */}
+        {/* 3. ACTIVE QUIZ RUNNER (FULLSCREEN & ANTI-CHEAT ENFORCED) */}
         {quizState === 'active' && currentQ && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl select-none relative">
+            
+            {/* Real-time Anti-Cheat Floating Notification */}
+            {antiCheatToast && (
+              <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-rose-950/95 border-2 border-rose-500 text-rose-200 font-extrabold text-xs shadow-2xl flex items-center gap-3 animate-bounce">
+                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+                <span>{antiCheatToast}</span>
+                {securityStrikes > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px]">
+                    Violation #{securityStrikes}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Top Security & Proctoring Environment Bar */}
+            <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-emerald-400 font-black">
+                <Shield className="w-4 h-4 text-emerald-400" />
+                <span>Secure Proctoring Active</span>
+                <span className="text-slate-500 font-normal">| Copy & Paste Disabled 🔒</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {isFullscreen ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    Fullscreen Enforced
+                  </span>
+                ) : (
+                  <button
+                    onClick={enterFullscreen}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] animate-pulse cursor-pointer shadow-md"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    Enter Fullscreen Mode (முழுத்திரை)
+                  </button>
+                )}
+
+                {securityStrikes > 0 && (
+                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-extrabold">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Strikes: {securityStrikes}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Warning if fullscreen exited */}
+            {fullscreenWarning && !isFullscreen && (
+              <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-2xl flex items-center justify-between gap-3 text-rose-200 text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>
+                    <strong>Warning:</strong> You exited fullscreen mode! Continued tab switching or window changes may lead to exam disqualification.
+                  </span>
+                </div>
+                <button
+                  onClick={enterFullscreen}
+                  className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-[11px] shrink-0 cursor-pointer"
+                >
+                  Restore Fullscreen
+                </button>
+              </div>
+            )}
+
             {/* Progress Header */}
             <div className="flex justify-between items-center border-b border-slate-800 pb-4">
               <div>
@@ -784,8 +984,8 @@ export const StudentQuizPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Question Text */}
-            <h2 className="text-xl font-extrabold text-white leading-relaxed">
+            {/* Question Text (Copying blocked) */}
+            <h2 className="text-xl font-extrabold text-white leading-relaxed select-none">
               {currentQ.question}
             </h2>
 
